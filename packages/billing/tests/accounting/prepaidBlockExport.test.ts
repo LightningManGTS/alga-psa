@@ -42,7 +42,8 @@ describe('prepaid block accounting export', () => {
     const resolver = new AccountingMappingResolver({} as any, undefined, 'tenant-x');
     const prepaidBlockLine = { service_id: 'svc-sold-as' };
     const adHocBlockLine = { service_id: 'svc-sold-as' };
-    for (const adapterType of ['quickbooks_online', 'xero']) {
+    // quickbooks_csv mappings also drive the QuickBooks Desktop (IIF) export.
+    for (const adapterType of ['quickbooks_online', 'xero', 'quickbooks_csv']) {
       const a = await resolver.resolveServiceMapping({ adapterType, serviceId: prepaidBlockLine.service_id });
       const b = await resolver.resolveServiceMapping({ adapterType, serviceId: adHocBlockLine.service_id });
       expect(a).toMatchObject({ external_entity_id: 'item-block', source: 'service' });
