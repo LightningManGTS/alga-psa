@@ -9457,7 +9457,8 @@ export const chatApiRegistry: ChatApiRegistryEntry[] = [
             "prospect",
             "active",
             "former"
-          ]
+          ],
+          "description": "Relationship lifecycle (default active on create). The Clients list shows only active clients by default, so prospect and former clients are hidden there until the user changes the Lifecycle filter. Only send prospect or former when the user explicitly asks for that status."
         },
         "tags": {
           "type": "array",
@@ -10213,7 +10214,8 @@ export const chatApiRegistry: ChatApiRegistryEntry[] = [
             "prospect",
             "active",
             "former"
-          ]
+          ],
+          "description": "Relationship lifecycle (default active on create). The Clients list shows only active clients by default, so prospect and former clients are hidden there until the user changes the Lifecycle filter. Only send prospect or former when the user explicitly asks for that status."
         },
         "tags": {
           "type": "array",
