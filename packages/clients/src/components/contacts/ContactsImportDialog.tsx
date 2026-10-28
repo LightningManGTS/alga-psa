@@ -19,7 +19,7 @@ import {
   ICSVImportOptions,
   ImportContactResult,
 } from '@alga-psa/types';
-import { importContactsFromCSV, checkExistingEmails, generateContactCSVTemplate } from '@alga-psa/clients/actions';
+import { importContactsFromCSV, checkExistingEmails, generateContactCSVTemplate, findClientsByNames } from '@alga-psa/clients/actions';
 import { Upload, AlertTriangle, Check, Download } from 'lucide-react';
 import { Alert, AlertDescription } from '@alga-psa/ui/components/Alert';
 import { parseCSV, unparseCSV } from '@alga-psa/core';
@@ -39,8 +39,7 @@ import {
 interface ContactsImportDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onImportComplete: (contacts: IContact[]) => void;
-  clients: { client_id: string; client_name: string; }[];
+  onImportComplete: (contacts: IContact[], clients: { client_id: string; client_name: string }[]) => void;
 }
 
 interface ImportOptionsProps {
@@ -55,7 +54,6 @@ const ContactsImportDialog: React.FC<ContactsImportDialogProps> = ({
   isOpen,
   onClose,
   onImportComplete,
-  clients
 }) => {
   const { t } = useTranslation('msp/contacts');
   const [step, setStep] = useState<'upload' | 'mapping' | 'preview' | 'importing' | 'results' | 'complete'>('upload');
@@ -79,6 +77,7 @@ const ContactsImportDialog: React.FC<ContactsImportDialogProps> = ({
     currentItem?: string;
   }>({ current: 0, total: 0 });
   const [failedRecords, setFailedRecords] = useState<ImportContactResult[]>([]);
+  const [importClients, setImportClients] = useState<{ client_id: string; client_name: string }[]>([]);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -122,6 +121,7 @@ const ContactsImportDialog: React.FC<ContactsImportDialogProps> = ({
       setExistingContactsCount(0);
       setProcessingDetails({ current: 0, total: 0 });
       setFailedRecords([]);
+    setImportClients([]);
       setCurrentPage(1);
       setPageSize(10);
     }
@@ -307,11 +307,24 @@ const ContactsImportDialog: React.FC<ContactsImportDialogProps> = ({
     }
   };
 
+  const resolveImportClients = async (data: ContactCsvRecord[]) => {
+    // Resolve client names with one targeted lookup instead of loading every client.
+    const distinctNames = Array.from(
+      new Set(data.map((record) => record.client).filter((name): name is string => Boolean(name)))
+    );
+    const matched = distinctNames.length > 0 ? await findClientsByNames(distinctNames) : [];
+    if (isReturnedActionError(matched)) {
+      throw new Error(getErrorMessage(matched));
+    }
+    return matched;
+  };
   const processImport = async (data: ContactCsvRecord[]) => {
     setStep('importing');
     setProcessingDetails({ current: 0, total: data.length });
     
     try {
+      const clients = await resolveImportClients(data);
+      setImportClients(clients);
       const transformedData = buildContactCsvImportRows(data, columnMappings, clients);
       const results = await importContactsFromCSV(
         transformedData,
@@ -338,7 +351,7 @@ const ContactsImportDialog: React.FC<ContactsImportDialogProps> = ({
         const successfulContacts = results
           .filter(r => r.success && r.contact)
           .map((r): IContact => r.contact!);
-        onImportComplete(successfulContacts);
+        onImportComplete(successfulContacts, clients);
       } else {
         setStep('results');
       }
@@ -362,7 +375,7 @@ const ContactsImportDialog: React.FC<ContactsImportDialogProps> = ({
     // Only write a Tags column when the import carried one: re-importing this
     // file must not turn an unmapped Tags column into an explicit blank.
     const includeTags = failedRecords.some((record) => record.originalData.tags !== undefined);
-    const clientNameById = new Map(clients.map((client) => [client.client_id, client.client_name]));
+    const clientNameById = new Map(importClients.map((client) => [client.client_id, client.client_name]));
     const fields = [
       'full_name',
       'email',
