@@ -37,6 +37,7 @@ import { Switch } from '@alga-psa/ui/components/Switch';
 import { Label } from '@alga-psa/ui/components/Label';
 import { getTeamAvatarUrlsBatchAction } from '@alga-psa/teams/actions';
 import { ClientPicker } from '@alga-psa/ui/components/ClientPicker';
+import { searchClientsForPicker } from '../actions/clientLookupActions';
 import { TagFilter } from '@alga-psa/ui/components/tags/TagFilter';
 import type { TagSize } from '@alga-psa/ui/components/tags';
 import { usePrintAction } from '@alga-psa/ui/components/PrintButton';
@@ -162,7 +163,6 @@ interface TicketingDashboardProps {
   initialStatuses: TicketStatusFilterOption[];
   initialPriorities: SelectOption[];
   initialCategories: ITicketCategory[];
-  initialClients: IClient[];
   initialTags?: ITag[];
   initialUsers?: IUser[];
   totalCount: number;
@@ -311,7 +311,6 @@ const TicketingDashboard: React.FC<TicketingDashboardProps> = ({
   initialStatuses,
   initialPriorities,
   initialCategories,
-  initialClients,
   initialTags = [],
   initialUsers = [],
   totalCount,
@@ -395,7 +394,6 @@ const TicketingDashboard: React.FC<TicketingDashboardProps> = ({
   const [isPrintOptionsOpen, setIsPrintOptionsOpen] = useState(false);
 
   const [boards] = useState<IBoard[]>(initialBoards);
-  const [clients] = useState<IClient[]>(initialClients);
   const [categories, setCategories] = useState<ITicketCategory[]>(initialCategories);
   const [rawStatusOptions] = useState<TicketStatusFilterOption[]>(initialStatuses);
   const [priorityOptions] = useState<SelectOption[]>(initialPriorities);
@@ -422,6 +420,20 @@ const TicketingDashboard: React.FC<TicketingDashboardProps> = ({
     ? selectedBoards[0]
     : null;
   const selectedClient = filterValues.clientId ?? null;
+  // The client filter is a server-searched picker, so the chip label is resolved by id on demand.
+  // LEVERAGE: pattern fetch-selected-client-by-id — single-client lookup for a picker's selected value
+  const [selectedClientLabel, setSelectedClientLabel] = useState<{ id: string; name: string } | null>(null);
+  useEffect(() => {
+    if (!selectedClient) return;
+    let cancelled = false;
+    searchClientsForPicker({ ids: [selectedClient] })
+      .then((result) => {
+        const match = result.clients.find((c) => c.client_id === selectedClient);
+        if (!cancelled && match) setSelectedClientLabel({ id: selectedClient, name: match.client_name });
+      })
+      .catch((error) => console.error('Error resolving selected client filter label:', error));
+    return () => { cancelled = true; };
+  }, [selectedClient]);
   const selectedStatus = filterValues.statusId ?? TICKET_STATUS_FILTER_OPEN;
   const selectedPriority = filterValues.priorityId ?? 'all';
   const selectedCategories = useMemo(() => {
@@ -2146,7 +2158,7 @@ const TicketingDashboard: React.FC<TicketingDashboardProps> = ({
     });
 
     if (selectedClient) {
-      const name = clients.find((c) => c.client_id === selectedClient)?.client_name ?? t('fields.client', 'Client');
+      const name = (selectedClientLabel?.id === selectedClient ? selectedClientLabel.name : null) ?? t('fields.client', 'Client');
       chips.push({ key: `client:${selectedClient}`, label: `${t('fields.client', 'Client')}: ${name}`, onRemove: () => handleClientSelect(null) });
     }
 
@@ -2243,8 +2255,7 @@ const TicketingDashboard: React.FC<TicketingDashboardProps> = ({
       ...chip,
       removeLabel: t('filters.removeFilterChip', 'Remove filter: {{label}}', { label: chip.label }),
     }));
-  }, [selectedBoards, excludedBoards, boards, selectedClient, clients, selectedAssignees, initialUsers, selectedTeams, teams, includeUnassigned, selectedStatus, statusOptions, selectedResponseState, selectedPriority, priorityOptions, selectedDueDateFilter, dueDateFilterValue, allowSlaStatusFilter, selectedSlaStatus, selectedCategories, excludedCategories, categories, selectedTags, handleBoardSelect, handleClientSelect, handleCategorySelect, onFilterChange, t]);
-
+  }, [selectedBoards, excludedBoards, boards, selectedClient, selectedClientLabel, selectedAssignees, initialUsers, selectedTeams, teams, includeUnassigned, selectedStatus, statusOptions, selectedResponseState, selectedPriority, priorityOptions, selectedDueDateFilter, dueDateFilterValue, allowSlaStatusFilter, selectedSlaStatus, selectedCategories, excludedCategories, categories, selectedTags, handleBoardSelect, handleClientSelect, handleCategorySelect, onFilterChange, t]);
   return (
     <>
     <ReflectionContainer id={id} label="Ticketing Dashboard">
@@ -2425,7 +2436,7 @@ const TicketingDashboard: React.FC<TicketingDashboardProps> = ({
                 <ClientPicker
                   id='client-picker'
                   data-automation-id={`${id}-client-picker`}
-                  clients={clients}
+                  searchClients={searchClientsForPicker}
                   onSelect={handleClientSelect}
                   selectedClientId={selectedClient}
                   filterState={clientFilterState}
