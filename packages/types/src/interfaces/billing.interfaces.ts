@@ -88,6 +88,9 @@ export interface IUserCostRate extends TenantEntity {
 }
 
 export interface IFixedPriceCharge extends IBillingCharge, TenantEntity {
+  /** One-time ticket charge, not a recurring contract obligation. */
+  ticket_fixed_fee_id?: string;
+  ticket_fixed_fee_updated_at?: string;
   serviceId?: string;
   serviceName: string;
   quantity: number;
@@ -527,6 +530,7 @@ export interface IProductCharge extends IBillingCharge, TenantEntity {
   type: 'product';
   material_source_type?: 'ticket' | 'project';
   material_source_id?: string;
+  material_source_updated_at?: string;
 }
 
 /**
@@ -831,6 +835,7 @@ export interface IProductCharge extends IBillingCharge, TenantEntity {
   total: number;
   material_source_type?: 'ticket' | 'project';
   material_source_id?: string;
+  material_source_updated_at?: string;
 }
 
 /**
