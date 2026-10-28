@@ -656,7 +656,10 @@ const Contacts: React.FC<ContactsProps> = ({ initialContacts, clientId, preSelec
     }
   };
 
-  const handleImportComplete = (importedContacts: IContact[]) => {
+  const handleImportComplete = (
+    importedContacts: IContact[],
+    clients: { client_id: string; client_name: string }[],
+  ) => {
     const clientNameById = new Map(clients.map((client) => [client.client_id, client.client_name]));
     setContacts(prev => mergeContactsById(prev, importedContacts, clientNameById));
     setIsImportDialogOpen(false);
