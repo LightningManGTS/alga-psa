@@ -69,6 +69,8 @@ import {
     skipMaintenanceOccurrence,
     setMaintenanceSchedulePaused,
 } from '@alga-psa/shared/services/assets/maintenanceLifecycle';
+import { parseCustomRecurrence } from '../lib/maintenanceRecurrence';
+import { orderEntityAssetIds, type EntityAssociationRow } from '../lib/entityAssetOrder';
 import { localizeActionError, withAuth, hasPermission } from '@alga-psa/auth';
 import { createTenantKnex, tenantDb } from '@alga-psa/db';
 import { resolveEffectiveTimeZone } from '@alga-psa/db';
@@ -532,6 +534,7 @@ function createAssetReadAuthorizationKernel(trx: Knex.Transaction) {
             resolveRules: async (input) => {
                 try {
                     return await resolveBundleNarrowingRulesForEvaluation(trx, input);
+                // write-admission: exempt — authorization-rule read, never a write
                 } catch {
                     return [];
                 }
@@ -2562,6 +2565,10 @@ export const updateMaintenanceSchedule = withAuth(async (
 
             await createAuthorizedAssetReadContextForUser(trx, tenant, user as AssetAuthUser, existingSchedule.asset_id);
 
+            if ((validatedData.frequency ?? existingSchedule.frequency) === 'custom') {
+                parseCustomRecurrence(validatedData.schedule_config ?? existingSchedule.schedule_config);
+            }
+
             // Update the schedule
             const [updatedSchedule] = await tenantScopedTable(trx, 'asset_maintenance_schedules', tenant)
                 .where({ schedule_id })
@@ -2921,7 +2928,7 @@ export const recordMaintenanceHistory = withAuth(async (user, { tenant }, data: 
                 .where({
                     schedule_id: validatedData.schedule_id
                 })
-                .select('schedule_id', 'asset_id', 'frequency', 'frequency_interval', 'schedule_name', 'maintenance_type')
+                .select('schedule_id', 'asset_id', 'frequency', 'frequency_interval', 'schedule_config', 'schedule_name', 'maintenance_type')
                 .first();
 
             if (!schedule) {
@@ -2950,16 +2957,9 @@ export const recordMaintenanceHistory = withAuth(async (user, { tenant }, data: 
                 })
                 .update({
                     last_maintenance: validatedData.performed_at,
-                    next_maintenance: trx.raw(`
-                        CASE frequency
-                            WHEN 'daily' THEN ? + INTERVAL '1 day' * frequency_interval
-                            WHEN 'weekly' THEN ? + INTERVAL '1 week' * frequency_interval
-                            WHEN 'monthly' THEN ? + INTERVAL '1 month' * frequency_interval
-                            WHEN 'quarterly' THEN ? + INTERVAL '3 months' * frequency_interval
-                            WHEN 'yearly' THEN ? + INTERVAL '1 year' * frequency_interval
-                            ELSE ? + INTERVAL '1 day' * frequency_interval
-                        END
-                    `, Array(6).fill(validatedData.performed_at))
+                    next_maintenance: advanceMaintenanceDate(
+                        validatedData.performed_at, schedule.frequency, schedule.frequency_interval, schedule.schedule_config
+                    )
                 })
                 .returning('*');
 
@@ -3621,7 +3621,8 @@ export const listEntityAssets = withAuth(async (user, { tenant }, entity_id: str
                     entity_id,
                     entity_type
                 })
-                .select('asset_id');
+                .select('asset_id', 'created_at')
+                .orderBy([{ column: 'created_at', order: 'desc' }, { column: 'asset_id', order: 'asc' }]);
 
             const candidateAssetIds = associations.map((association: { asset_id: string }) => association.asset_id);
             const uniqueAssetIds: string[] = Array.from(new Set<string>(candidateAssetIds));
@@ -3637,9 +3638,13 @@ export const listEntityAssets = withAuth(async (user, { tenant }, entity_id: str
                 candidateAssets.map((asset) => authorizeAssetReadDecision(trx, tenant, context, asset))
             );
 
-            const authorizedAssetIds = candidateAssets
-                .filter((_, index) => decisions[index]?.allowed)
-                .map((asset) => asset.asset_id);
+            // Newest association first, so the panel's collapsed rows include a just-received item.
+            const authorizedAssetIds = orderEntityAssetIds(
+                associations as EntityAssociationRow[],
+                candidateAssets
+                    .filter((_, index) => decisions[index]?.allowed)
+                    .map((asset) => asset.asset_id)
+            );
 
             if (authorizedAssetIds.length === 0) {
                 return [];

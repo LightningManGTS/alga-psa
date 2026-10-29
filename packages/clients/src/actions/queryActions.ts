@@ -14,6 +14,7 @@ import {
 } from '@alga-psa/formatting/avatarUtils';
 import { hasPermissionAsync } from '../lib/authHelpers';
 import { withClientSinceDateString } from '../lib/clientSince';
+import { attachDisplayTags } from '../lib/displayTags';
 import InteractionModel from '../models/interactions';
 import {
   actionError,
@@ -272,7 +273,7 @@ export const getAllClients = withAuth(async (user, { tenant }, includeInactive: 
     logoUrl: logoUrlsMap.get(client.client_id) || null,
   }));
 
-  return clientsWithLogos as IClient[];
+  return (await attachDisplayTags(db, tenant, user, 'client', clientsWithLogos, (client: any) => client.client_id)) as unknown as IClient[];
 });
 
 // --- Contact query actions ---
@@ -376,7 +377,7 @@ export const getContactsByClient = withAuth(async (
       client_logo_url: clientLogoUrl,
     }));
 
-    return contactsWithAvatars;
+    return (await attachDisplayTags(db, tenant, user, 'contact', contactsWithAvatars, (contact: IContact) => contact.contact_name_id)) as IContact[];
   } catch (err) {
     console.error('Error fetching contacts for client:', err);
 
@@ -528,7 +529,7 @@ export const getAllContacts = withAuth(async (
       client_logo_url: contact.client_id ? clientLogoMap.get(contact.client_id) ?? null : null,
     }));
 
-    return contactsWithAvatars;
+    return (await attachDisplayTags(db, tenant, user, 'contact', contactsWithAvatars, (contact: IContact) => contact.contact_name_id)) as IContact[];
   } catch (err) {
     console.error('Error fetching all contacts:', err);
 

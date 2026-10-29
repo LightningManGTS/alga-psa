@@ -175,6 +175,15 @@ export function registerWorkManagementV1Routes(registry: ApiOpenApiRegistry) {
     }),
   );
 
+  const ticketNotificationSuppressionProperties = {
+    suppressContactNotifications: zOpenApi.boolean().optional().describe(
+      'When true, suppresses customer-facing email and portal notifications for this operation.',
+    ),
+    suppressInternalNotifications: zOpenApi.boolean().optional().describe(
+      'When true, also suppresses agent and watcher notifications. Requires suppressContactNotifications=true.',
+    ),
+  };
+
   const CreateTicketBody = registry.registerSchema(
     'WorkV1CreateTicketBody',
     zOpenApi.object({
@@ -198,17 +207,9 @@ export function registerWorkManagementV1Routes(registry: ApiOpenApiRegistry) {
         actor: zOpenApi.record(zOpenApi.unknown()).nullable().optional(),
         external_status: zOpenApi.string().nullable().optional(),
       })).optional().describe('Ticket-level external references written in the same transaction as the ticket. A conflicting link rolls back the create.'),
-    }),
+      ...ticketNotificationSuppressionProperties,
+    }).describe('Ticket fields to create. Notification suppression applies only to this operation.'),
   );
-
-  const ticketNotificationSuppressionProperties = {
-    suppressContactNotifications: zOpenApi.boolean().optional().describe(
-      'When true, suppresses customer-facing email and portal notifications for this operation.',
-    ),
-    suppressInternalNotifications: zOpenApi.boolean().optional().describe(
-      'When true, also suppresses agent and watcher notifications. Requires suppressContactNotifications=true.',
-    ),
-  };
 
   const TicketUpdateBody = registry.registerSchema(
     'WorkV1TicketUpdateBody',
@@ -385,9 +386,9 @@ export function registerWorkManagementV1Routes(registry: ApiOpenApiRegistry) {
     { method: 'put', path: '/api/v1/projects/{id}/phases/{phaseId}', summary: 'Update project phase', description: 'Updates phase UUID under project UUID.', family: 'project' },
     { method: 'get', path: '/api/v1/projects/{id}/tickets', summary: 'List project tickets', description: 'Lists tickets linked to project UUID.', family: 'project' },
 
-    { method: 'get', path: '/api/v1/schedules', summary: 'List schedule entries', description: 'Lists schedule entries via ApiTimeSheetController.listScheduleEntries().', family: 'time_sheet' },
+    { method: 'get', path: '/api/v1/schedules', summary: 'List schedule entries', description: 'Lists schedule entries via ApiTimeSheetController.listScheduleEntries(). Returns every entry visible to the caller under shared-calendar rules (unpaginated), filtered by start_date, end_date (ISO 8601 date or date-time) and user_id. Date bounds are UTC: a date-only start_date means 00:00:00Z that day, a date-only end_date includes that whole day (entries ending before 00:00:00Z the next day), and date-time values are exact, inclusive bounds. Returns 400 for invalid dates or start_date after end_date.', family: 'time_sheet' },
     { method: 'post', path: '/api/v1/schedules', summary: 'Create schedule entry', description: 'Creates schedule entry via ApiTimeSheetController.createScheduleEntry().', family: 'time_sheet' },
-    { method: 'get', path: '/api/v1/schedules/search', summary: 'Search schedules', description: 'Current route delegates to ApiTimeSheetController.list() (time sheet list path), not schedule-specific search.', family: 'time_sheet' },
+    { method: 'get', path: '/api/v1/schedules/search', summary: 'Search schedules', description: 'Searches schedule entries via ApiTimeSheetController.searchScheduleEntries(). Returns entries visible to the caller under shared-calendar rules, filtered by start_date, end_date (ISO 8601 date or date-time) and user_id, paginated with page/limit. Date bounds are UTC: a date-only start_date means 00:00:00Z that day, a date-only end_date includes that whole day (entries ending before 00:00:00Z the next day), and date-time values are exact, inclusive bounds. Returns 400 for invalid dates or start_date after end_date.', family: 'time_sheet' },
     { method: 'delete', path: '/api/v1/schedules/{id}', summary: 'Delete schedule entry', description: 'Deletes schedule entry via ApiTimeSheetController.deleteScheduleEntry().', family: 'time_sheet' },
     { method: 'get', path: '/api/v1/schedules/{id}', summary: 'Get schedule entry', description: 'Current route delegates to ApiTimeSheetController.getById() (time sheet read path), not schedule-specific getter.', family: 'time_sheet' },
     { method: 'put', path: '/api/v1/schedules/{id}', summary: 'Update schedule entry', description: 'Updates schedule entry via ApiTimeSheetController.updateScheduleEntry(). `calendar_id`: omit to leave the calendar unchanged; a group calendar uuid moves the entry onto that group calendar (edit access required); `null` moves it back to a personal calendar (the entry stays on its assignees\' personal calendars). Requires edit access to the existing entry (403 read-only, 404 no access).', family: 'time_sheet' },
@@ -414,7 +415,7 @@ export function registerWorkManagementV1Routes(registry: ApiOpenApiRegistry) {
     { method: 'put', path: '/api/v1/tags/{id}/text', summary: 'Update tag text', description: 'Updates tag display text.', family: 'tag' },
 
     { method: 'get', path: '/api/v1/tickets', summary: 'List tickets', description: 'Lists tickets via ApiTicketController.list() with authorization-aware pagination. `sort` is validated against an allowlist (unknown values return 400) and supports latest_activity_at, which is also selectable through `fields`.', family: 'ticket' },
-    { method: 'post', path: '/api/v1/tickets', summary: 'Create ticket', description: 'Creates ticket via ApiTicketController.create().', family: 'ticket' },
+    { method: 'post', path: '/api/v1/tickets', summary: 'Create ticket', description: 'Creates ticket via ApiTicketController.create(). Optional suppression flags make this operation silent for customer notifications or for all human notifications while preserving audit, workflow, and webhook records.', family: 'ticket' },
     { method: 'post', path: '/api/v1/tickets/from-asset', summary: 'Create ticket from asset', description: 'Creates ticket from asset context via ApiTicketController.createFromAsset().', family: 'ticket' },
     { method: 'get', path: '/api/v1/tickets/search', summary: 'Search tickets', description: 'Searches tickets via ApiTicketController.search().', family: 'ticket' },
     { method: 'get', path: '/api/v1/tickets/stats', summary: 'Get ticket stats', description: 'Returns ticket aggregate stats for authorized tickets.', family: 'ticket' },
@@ -481,7 +482,6 @@ export function registerWorkManagementV1Routes(registry: ApiOpenApiRegistry) {
   ];
 
   const mismatchOps = new Set([
-    'get /api/v1/schedules/search',
     'get /api/v1/schedules/{id}',
     'get /api/v1/schedules/{id}/conflicts',
     'post /api/v1/time-sheets/bulk',
@@ -515,6 +515,25 @@ export function registerWorkManagementV1Routes(registry: ApiOpenApiRegistry) {
     'put /api/v1/time-periods/{id}',
     'delete /api/v1/time-periods/{id}',
   ]);
+
+  // GET /api/v1/schedules (unpaginated) and /schedules/search (paginated) share the same filters.
+  const scheduleEntryFilterShape = {
+    start_date: zOpenApi.string().optional().openapi({ description: 'ISO 8601 date or date-time; entries starting at or after. A date-only value means 00:00:00Z that day.' }),
+    end_date: zOpenApi.string().optional().openapi({ description: 'ISO 8601 date or date-time; entries ending at or before. A date-only value includes the whole UTC day (entries ending before 00:00:00Z the next day).' }),
+    user_id: zOpenApi.string().uuid().optional(),
+  };
+  const ScheduleEntryListQuery = registry.registerSchema(
+    'WorkV1ScheduleEntryListQuery',
+    zOpenApi.object(scheduleEntryFilterShape),
+  );
+  const ScheduleEntrySearchQuery = registry.registerSchema(
+    'WorkV1ScheduleEntrySearchQuery',
+    zOpenApi.object({
+      page: zOpenApi.string().optional(),
+      limit: zOpenApi.string().optional(),
+      ...scheduleEntryFilterShape,
+    }),
+  );
 
   // Real read contracts for the per-sheet and search routes (derived from the
   // same zod schemas the controller/service use, so docs cannot drift).
@@ -581,6 +600,12 @@ export function registerWorkManagementV1Routes(registry: ApiOpenApiRegistry) {
 
     if (def.method === 'get' && def.path === '/api/v1/tickets') {
       req.query = TicketListQuery;
+    }
+    if (def.method === 'get' && def.path === '/api/v1/schedules') {
+      req.query = ScheduleEntryListQuery;
+    }
+    if (def.method === 'get' && def.path === '/api/v1/schedules/search') {
+      req.query = ScheduleEntrySearchQuery;
     }
     if (def.method === 'get' && def.path === '/api/v1/time-sheets') {
       req.query = TimeSheetListQuery;
