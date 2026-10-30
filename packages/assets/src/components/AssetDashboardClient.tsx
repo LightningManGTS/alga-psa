@@ -8,6 +8,7 @@ import { useClientDrawer } from '@alga-psa/ui';
 import { Card } from '@alga-psa/ui/components/Card';
 import { DataTable } from '@alga-psa/ui/components/DataTable';
 import { CustodyBadge, useCustodyBadges } from './custody/CustodyBadge';
+import { RmaBadge, useRmaBadges } from './warranty/RmaBadge';
 import { AssetAgentCell, AssetCoverageCell, AssetIdentityMeta, AssetPatchingCell } from './assetListCells';
 import ClientNameCell from '@alga-psa/ui/components/ClientNameCell';
 import { Button } from '@alga-psa/ui/components/Button';
@@ -987,6 +988,7 @@ export default function AssetDashboardClient({ initialAssets }: AssetDashboardCl
   }, []);
 
   const custodyBadges = useCustodyBadges(useMemo(() => assets.map((a) => a.asset_id), [assets]));
+  const rmaBadges = useRmaBadges(useMemo(() => assets.map((a) => a.asset_id), [assets]));
 
   const columnLibrary: Record<ColumnKey, ColumnDefinition<Asset>> = useMemo(() => ({
     select: {
@@ -1086,6 +1088,7 @@ export default function AssetDashboardClient({ initialAssets }: AssetDashboardCl
             typeIcon={getAssetTypeIcon(record.asset_type)}
           />
           <CustodyBadge id={`asset-custody-badge-${record.asset_id}`} badge={custodyBadges.get(record.asset_id)} />
+          <RmaBadge id={`asset-rma-badge-${record.asset_id}`} badge={rmaBadges.get(record.asset_id)} />
         </div>
       )
     },
@@ -1297,6 +1300,7 @@ export default function AssetDashboardClient({ initialAssets }: AssetDashboardCl
     getAssetTypeLabel,
     assetStatuses,
     custodyBadges,
+    rmaBadges,
   ]);
 
   const columns: ColumnDefinition<Asset>[] = useMemo(() => {
