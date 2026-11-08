@@ -425,6 +425,20 @@ const { generateInvoiceForSelectionInputs } = await import(
   '../../../../../packages/billing/src/actions/invoiceGeneration'
 );
 
+// main removed the cycle-id generateInvoice action (03d361bb51); route the
+// material-claim cases through the surviving selector-input entrypoint.
+async function generateInvoice(billingCycleId: string) {
+  return generateInvoiceForSelectionInputs([
+    buildClientCadenceDueSelectionInput({
+      clientId: 'client-1',
+      scheduleKey: 'schedule:tenant-1:contract-line-1:client:advance',
+      periodKey: 'period:2025-02-01:2025-03-01',
+      windowStart: '2025-02-01',
+      windowEnd: '2025-03-01',
+    }),
+  ], {}, { billingCycleId });
+}
+
 describe('invoice generation zero-dollar recurring handling', () => {
   beforeEach(() => {
     vi.clearAllMocks();
