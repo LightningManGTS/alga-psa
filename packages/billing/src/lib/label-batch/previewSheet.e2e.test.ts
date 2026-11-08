@@ -68,6 +68,28 @@ async function measure(html: string, media: 'screen' | 'print', frameSelector: s
   }
 }
 
+/**
+ * Per-code print page and printable-area guide: thermal tags print on the 4 x 2 in roll with the
+ * 3 mm margin (round(3 mm to px) = 11 px); the customer worksheets print on their own paper
+ * (Letter or A4) with their 15 mm margin (round(15 mm to px) = 57 px). Page sizes are the exact
+ * 96 CSS px/in conversions (A4 in mm is not integral at 96 dpi). A worksheet cell is a flow
+ * section, so it is width-bound and lets content spill past the page edge instead of clipping.
+ */
+const GEOMETRY_BY_CODE: Record<string, {
+  width: number;
+  height: number;
+  unit: 'in' | 'mm';
+  frame: number;
+  pageH: number;
+  marginPx: number;
+  cellOverflow: string;
+}> = {
+  'standard-ticket-customer-worksheet': { width: 8.5, height: 11, unit: 'in', frame: 816, pageH: 1056, marginPx: 57, cellOverflow: 'visible' },
+  'standard-ticket-customer-worksheet-a4': { width: 210, height: 297, unit: 'mm', frame: 793.6875, pageH: 1122.5197, marginPx: 57, cellOverflow: 'visible' },
+};
+const TAG_GEOMETRY = { width: 4, height: 2, unit: 'in' as const, frame: 384, pageH: 192, marginPx: 11, cellOverflow: 'hidden' };
+const geometryFor = (code: string) => GEOMETRY_BY_CODE[code] ?? TAG_GEOMETRY;
+
 const viewModelFor = (code: string): LabelViewModel => {
   const labelClass = LABEL_CLASS_BY_STANDARD_CODE[code];
   const entityType = ENTITY_BY_CLASS[labelClass];
@@ -88,7 +110,9 @@ describe('designer preview sheet matches the printed label cell', () => {
   });
 
   for (const code of Object.keys(STANDARD_LABEL_TEMPLATE_ASTS)) {
-    it(`${code}: same 4 x 2 in sheet, same clipping, every node in the same place`, async () => {
+    it(`${code}: same sheet, same clipping, every node in the same place`, async () => {
+      const geometry = geometryFor(code);
+      const { frame: framePx, pageH: pagePx, marginPx, cellOverflow } = geometry;
       const ast = getStandardLabelTemplateAstByCode(code) as TemplateAst;
       const viewModel = viewModelFor(code);
 
@@ -99,28 +123,28 @@ describe('designer preview sheet matches the printed label cell', () => {
       });
       const printed = await renderLabelBatchHtml([{ templateCode: code, viewModel }], {
         kind: 'one-per-page',
-        pageSize: { width: 4, height: 2, unit: 'in' },
+        pageSize: { width: geometry.width, height: geometry.height, unit: geometry.unit },
       });
 
       const preview = await measure(previewHtml, 'screen', `.${PREVIEW_SHEET_CLASS}`);
       const paper = await measure(printed.html, 'print', '.label-cell');
 
-      // The sheet IS the label: 4 x 2 in at 96 CSS px/in, clipped like the cell.
-      expect(preview.frame.w).toBeCloseTo(384, 1);
-      expect(preview.frame.h).toBeCloseTo(192, 1);
-      expect(paper.frame.w).toBeCloseTo(384, 1);
-      expect(paper.frame.h).toBeCloseTo(192, 1);
+      // The sheet IS the label (or the worksheet page) at 96 CSS px/in, clipped like the cell.
+      expect(preview.frame.w).toBeCloseTo(framePx, 1);
+      expect(preview.frame.h).toBeCloseTo(pagePx, 1);
+      expect(paper.frame.w).toBeCloseTo(framePx, 1);
+      expect(paper.frame.h).toBeCloseTo(pagePx, 1);
       expect(preview.frame.overflow).toBe('hidden');
-      expect(paper.frame.overflow).toBe('hidden');
+      expect(paper.frame.overflow).toBe(cellOverflow);
 
       // The printable-area guide sits exactly on the template margin (the root's padding).
       const root = paper.nodes.root;
       expect(root).toBeDefined();
       expect(preview.guide).not.toBeNull();
-      expect(preview.guide!.x).toBeCloseTo(11, 0);
-      expect(preview.guide!.y).toBeCloseTo(11, 0);
-      expect(preview.guide!.w).toBeCloseTo(384 - 22, 0);
-      expect(preview.guide!.h).toBeCloseTo(192 - 22, 0);
+      expect(preview.guide!.x).toBeCloseTo(marginPx, 0);
+      expect(preview.guide!.y).toBeCloseTo(marginPx, 0);
+      expect(preview.guide!.w).toBeCloseTo(framePx - marginPx * 2, 0);
+      expect(preview.guide!.h).toBeCloseTo(pagePx - marginPx * 2, 0);
 
       // Every node the template renders is in the same place, at the same size, in both.
       const ids = Object.keys(paper.nodes);

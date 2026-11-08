@@ -1644,7 +1644,27 @@
       "ticketTitle": "Drukuj etykiety robocze",
       "tooMany": "Jednorazowo można wydrukować co najwyżej {{max}} etykiet.",
       "unnamedAsset": "Zasób bez nazwy",
-      "useTemplate": "Użyj szablonu {{template}}"
+      "useTemplate": "Użyj szablonu {{template}}",
+      "paperMismatchWarning": "Ten szablon jest zaprojektowany dla papieru {{template}}, ale wybrany układ drukuje na {{layout}}. Wybierz „Papier szablonu” lub pasujący układ pełnostronicowy, inaczej treść się nie zmieści.",
+      "worksheetPageSizeError": "Karta pracy nie pasuje do wybranego układu wydruku. Użyj „Papier szablonu” lub układu z tym samym papierem co szablon.",
+      "worksheetTextOverflowError": "Karta {{numbers}} zawiera tekst, który się nie mieści. Przed drukowaniem zmień układ lub skróć treść."
+    },
+    "layout": {
+      "template-preferred": "Papier szablonu (domyślnie)",
+      "roll-4x2": "Jedna na etykietę (rolka 4 × 2 cale)",
+      "letter-2x5": "Arkusz Letter, 2 × 5 (styl Avery 5163)",
+      "a4-2x7": "Arkusz A4, 2 × 7 (styl 99,1 × 38,1 mm)",
+      "a4-full": "Arkusz A4, jeden na stronę",
+      "letter-full": "Arkusz Letter, jedna na stronę"
+    },
+    "paper": {
+      "a4": "Arkusz A4",
+      "letter": "Arkusz Letter",
+      "legal": "Arkusz Legal"
+    },
+    "standardTemplates": {
+      "standard-ticket-customer-worksheet-a4": "Standardowa karta pracy klienta (A4)",
+      "standard-ticket-customer-worksheet": "Standardowa karta klienta"
     }
   },
   "deleteEntity": {

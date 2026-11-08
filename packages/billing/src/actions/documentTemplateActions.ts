@@ -30,13 +30,14 @@ import {
 } from '../lib/document-templates/storage';
 import { labelClassOfCustomTemplate, labelClassOfStandardCode } from '../lib/label-template-ast/labelTemplates';
 import { buildLabelModel } from '../lib/label-batch/renderLabelBatchHtml';
+import { isWorksheetLabelMetadata } from '../lib/label-batch/layout';
 import { evaluateTemplateAst } from '../lib/invoice-template-ast/evaluator';
 import { INVOICE_TEMPLATE_BINDING_ALIASES } from '../lib/invoice-template-ast/bindingAliases';
 import { renderTemplateAstHtmlDocument } from '../lib/invoice-template-ast/server-render';
 import { resolveTemplatePreviewSheetFromAst } from '../lib/invoice-template-ast/printSettings';
 import { fetchTenantParty } from '../lib/adapters/tenantPartyAdapter';
 import { mapDbSalesOrderToViewModel } from '../lib/adapters/salesOrderAdapters';
-import { overlaySalesOrderSampleTenant } from '../components/invoice-designer/preview/tenantBrandingOverlay';
+import { overlayLabelSampleTenant, overlaySalesOrderSampleTenant } from '../components/invoice-designer/preview/tenantBrandingOverlay';
 import { createPDFGenerationService } from '../services/pdfGenerationService';
 
 /**
@@ -348,18 +349,24 @@ export const runAuthoritativeTemplatePreview = withAuth(
     } else {
       const sample = getDocumentTypeRegistryEntry(type).buildSampleViewModel();
       // Show the tenant's real "Your Company" branding on the sample, resolved through the same adapter
-      // the live document uses. Null branding keeps the sample's synthetic issuer.
+      // the live document uses. Null branding keeps the sample's synthetic issuer. Labels carry their
+      // issuer in the camelCase `LabelTenantClient` shape, so they overlay through their own helper.
       const tenantParty = await fetchTenantParty(knex, tenant).catch(() => null);
-      previewModel = overlaySalesOrderSampleTenant(sample, tenantParty);
+      previewModel = type === 'work-tag'
+        ? (overlayLabelSampleTenant(sample as unknown as LabelViewModel, tenantParty) as unknown as Record<string, unknown>)
+        : overlaySalesOrderSampleTenant(sample, tenantParty);
     }
 
     if (type === 'work-tag') {
-      // The preview shows what the printed label shows: hidden fields nulled, display lines derived.
+      // The preview shows what the printed label shows: hidden fields nulled, display lines derived,
+      // and the same worksheet line-budget rules as the print path (`renderLabelBatchHtml`), keyed
+      // on the page size the template declares.
       const sampleLabel = previewModel as unknown as LabelViewModel;
       previewModel = buildLabelModel(
         sampleLabel,
         sampleLabel.tenantClient,
-        templateAst.metadata?.labelSettings?.hiddenFields
+        templateAst.metadata?.labelSettings?.hiddenFields,
+        { worksheet: isWorksheetLabelMetadata(templateAst.metadata) }
       ) as unknown as Record<string, unknown>;
     }
 

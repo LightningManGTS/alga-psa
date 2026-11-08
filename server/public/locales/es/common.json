@@ -1634,7 +1634,27 @@
       "ticketTitle": "Imprimir etiquetas de trabajo",
       "tooMany": "Puede imprimir como máximo {{max}} etiquetas a la vez.",
       "unnamedAsset": "Activo sin nombre",
-      "useTemplate": "Usar {{template}}"
+      "useTemplate": "Usar {{template}}",
+      "paperMismatchWarning": "Esta plantilla está diseñada para papel {{template}}, pero el diseño seleccionado imprime en {{layout}}. Elija «Papel de la plantilla» o el diseño de hoja completa equivalente; si no, el contenido no cabrá.",
+      "worksheetPageSizeError": "El cuaderno de trabajo no cabe en el diseño de impresión seleccionado. Use «Papel de la plantilla» o un diseño con el mismo papel que la plantilla.",
+      "worksheetTextOverflowError": "La hoja {{numbers}} contiene texto que no cabe. Ajuste el diseño o acorte el contenido antes de imprimir."
+    },
+    "layout": {
+      "template-preferred": "Papel de la plantilla (predeterminado)",
+      "roll-4x2": "Una por etiqueta (rollo de 4 × 2 in)",
+      "letter-2x5": "Hoja Letter, 2 × 5 (estilo Avery 5163)",
+      "a4-2x7": "Hoja A4, 2 × 7 (estilo 99,1 × 38,1 mm)",
+      "a4-full": "Hoja A4, una por página",
+      "letter-full": "Hoja Letter, una por página"
+    },
+    "paper": {
+      "a4": "Hoja A4",
+      "letter": "Hoja Letter",
+      "legal": "Hoja Legal"
+    },
+    "standardTemplates": {
+      "standard-ticket-customer-worksheet-a4": "Cuaderno de trabajo estándar para cliente (A4)",
+      "standard-ticket-customer-worksheet": "Hoja de cliente estándar"
     }
   },
   "deleteEntity": {

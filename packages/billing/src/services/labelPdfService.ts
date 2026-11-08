@@ -1,4 +1,5 @@
 import type { Page } from 'puppeteer';
+import { PDFDocument } from 'pdf-lib';
 import { createTenantKnex } from '@alga-psa/db';
 import type { InvoicePdfPrintOptions } from '@alga-psa/types';
 
@@ -6,10 +7,19 @@ import { StorageService } from '@alga-psa/storage/StorageService';
 
 import { fetchTenantParty } from '../lib/adapters/tenantPartyAdapter';
 import { renderLabelBatchHtml, type LabelPrintItem } from '../lib/label-batch/renderLabelBatchHtml';
-import type { LabelBatchLayout } from '../lib/label-batch/layout';
+import {
+  LabelLayoutError,
+  labelMetadataPrefersPaperPage,
+  resolveTemplateDeclaredPageSizeMm,
+  type LabelBatchLayout,
+} from '../lib/label-batch/layout';
 import { listDocumentTemplates } from '../lib/document-templates/storage';
 import { labelClassOfCustomTemplate } from '../lib/label-template-ast/labelTemplates';
-import { LABEL_CLASS_BY_STANDARD_CODE, LABEL_STANDARD_CODE_BY_CLASS } from '../lib/label-template-ast/standardTemplates';
+import {
+  LABEL_CLASS_BY_STANDARD_CODE,
+  LABEL_STANDARD_CODE_BY_CLASS,
+  getStandardLabelTemplateAstByCode,
+} from '../lib/label-template-ast/standardTemplates';
 import { inlineLogoDataUrl } from '../lib/label-batch/labelLogo';
 import { resolveLabelTemplate, type ResolvedLabelTemplate } from '../lib/label-batch/resolveLabelTemplate';
 import type { LabelClass } from '@alga-psa/types';
@@ -22,6 +32,54 @@ export async function renderHtmlToPdf(html: string, printOptions: InvoicePdfPrin
   try {
     page = await browser.newPage();
     await page.setContent(html, { waitUntil: 'load' });
+    await page.emulateMediaType('print');
+    const clippedWorksheets = await page.evaluate(async () => {
+      await document.fonts.ready;
+      const clipped: number[] = [];
+      const tolerance = 0.75;
+      for (const cell of document.querySelectorAll<HTMLElement>('.label-cell[data-validate-text-fits="true"]')) {
+        // A flow cell (a worksheet page) is bounded horizontally only: content taller than one page
+        // continues on the next page, so vertical overflow past the cell is legitimate. Boxes inside
+        // the content that clip on their own (an author's fixed-size field) are still checked fully.
+        const isFlowCell = cell.dataset.flow === 'true';
+        const walker = document.createTreeWalker(cell, NodeFilter.SHOW_TEXT);
+        let isClipped = false;
+        for (let node = walker.nextNode(); node && !isClipped; node = walker.nextNode()) {
+          if (!node.textContent?.trim()) continue;
+          const range = document.createRange();
+          range.selectNodeContents(node);
+          const rects = Array.from(range.getClientRects()).filter((rect) => rect.width > 0 && rect.height > 0);
+          for (let element = node.parentElement; element && cell.contains(element); element = element.parentElement) {
+            const style = getComputedStyle(element);
+            const clipsOwnBox = ['hidden', 'clip', 'auto', 'scroll'];
+            const clipX = element === cell || clipsOwnBox.includes(style.overflowX);
+            const clipY = clipsOwnBox.includes(style.overflowY) || (element === cell && !isFlowCell);
+            if (!clipX && !clipY) continue;
+            const box = element.getBoundingClientRect();
+            const left = box.left + element.clientLeft;
+            const top = box.top + element.clientTop;
+            const right = left + element.clientWidth;
+            const bottom = top + element.clientHeight;
+            if (rects.some((rect) =>
+              (clipX && (rect.left < left - tolerance || rect.right > right + tolerance)) ||
+              (clipY && (rect.top < top - tolerance || rect.bottom > bottom + tolerance))
+            )) {
+              isClipped = true;
+              break;
+            }
+          }
+        }
+        if (isClipped) clipped.push(Number(cell.dataset.labelIndex) + 1);
+      }
+      return clipped;
+    });
+    if (clippedWorksheets.length > 0) {
+      throw new LabelLayoutError(
+        `Worksheet ${clippedWorksheets.join(', ')} contains text that does not fit. ` +
+        'Adjust the layout or shorten the content before printing.',
+        { errorCode: 'worksheetTextOverflow', worksheetNumbers: clippedWorksheets },
+      );
+    }
     return Buffer.from(await page.pdf(printOptions));
   } finally {
     if (page) {
@@ -55,7 +113,15 @@ export async function renderLabelBatchPdf(
     locale: options.locale,
   });
   const pdf = await renderHtmlToPdf(html, printOptions);
-  return { pdf, sheets: geometry.sheets, labels: items.length };
+  // A worksheet flows across pages, so the planned sheet count is a floor: report the real page
+  // count of the produced PDF, falling back to the plan when the buffer cannot be re-read.
+  let sheets = geometry.sheets;
+  try {
+    sheets = (await PDFDocument.load(pdf)).getPageCount();
+  } catch {
+    // The plan stays the answer for a buffer pdf-lib cannot parse.
+  }
+  return { pdf, sheets, labels: items.length };
 }
 
 /** Resolve the template for a print (explicit id -> class default -> standard). Read-only. */
@@ -68,11 +134,25 @@ export async function resolveLabelTemplateForTenant(
   return resolveLabelTemplate(knex, tenant, labelClass, templateId);
 }
 
+/** The layout helper's mm pair in the flatter shape the print dialog consumes. */
+const toDialogPaperSize = (size: { widthMm: number; heightMm: number } | null): { width: number; height: number } | null =>
+  size ? { width: size.widthMm, height: size.heightMm } : null;
+
 /** The templates a tenant can print a label class with, for the print dialog. Read-only. */
 export async function listLabelTemplatesForTenant(
   tenant: string,
   labelClass: LabelClass
-): Promise<{ defaultTemplateId: string; templates: Array<{ id: string; name: string; source: 'standard' | 'custom' }> }> {
+): Promise<{
+  defaultTemplateId: string;
+  templates: Array<{
+    id: string;
+    name: string;
+    source: 'standard' | 'custom';
+    prefersPaperPage: boolean;
+    /** The page the template declares in mm, when it declares one. */
+    paperSizeMm?: { width: number; height: number } | null;
+  }>;
+}> {
   const { knex } = await createTenantKnex();
   const items = await listDocumentTemplates(knex, tenant, 'work-tag');
   const templates = items
@@ -81,7 +161,23 @@ export async function listLabelTemplatesForTenant(
         ? LABEL_CLASS_BY_STANDARD_CODE[item.template_id] === labelClass
         : labelClassOfCustomTemplate(item.templateAst) === labelClass
     )
-    .map((item) => ({ id: item.template_id, name: item.name, source: item.source }));
+    .map((item) => ({
+      id: item.template_id,
+      name: item.name,
+      source: item.source,
+      // True when the template asks for a full sheet (an A4 or Letter worksheet): the dialog offers
+      // "template paper" as the layout default for it. Standard ASTs carry the page size, so the
+      // catalog answers for both sources.
+      prefersPaperPage:
+        labelMetadataPrefersPaperPage(item.templateAst?.metadata) ||
+        (item.source === 'standard'
+          ? labelMetadataPrefersPaperPage(getStandardLabelTemplateAstByCode(item.template_id)?.metadata)
+          : false),
+      paperSizeMm: toDialogPaperSize(resolveTemplateDeclaredPageSizeMm(item.templateAst?.metadata))
+        ?? (item.source === 'standard'
+          ? toDialogPaperSize(resolveTemplateDeclaredPageSizeMm(getStandardLabelTemplateAstByCode(item.template_id)?.metadata))
+          : null),
+    }));
   const resolved = await resolveLabelTemplate(knex, tenant, labelClass);
   return { defaultTemplateId: resolved.ok ? resolved.templateCode : LABEL_STANDARD_CODE_BY_CLASS[labelClass], templates };
 }
