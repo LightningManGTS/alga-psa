@@ -16554,12 +16554,23 @@ export const chatApiRegistry: ChatApiRegistryEntry[] = [
     "path": "/api/v1/contract-lines/bulk",
     "displayName": "Bulk delete contract lines",
     "summary": "Bulk delete contract lines",
-    "description": "Alias route to bulkDeleteContractLines; deletes multiple contract lines by ID list.",
+    "description": "Alias route to bulkDeleteContractLines; deletes multiple contract lines by ID list. The ids may come from the request body or, for clients that cannot send a body on DELETE, from the `contract_line_ids` query parameter.",
     "tags": [
       "Contract Lines"
     ],
     "approvalRequired": false,
-    "parameters": [],
+    "parameters": [
+      {
+        "name": "contract_line_ids",
+        "in": "query",
+        "required": false,
+        "description": "Comma-separated contract line UUIDs. DELETE-only alternative to the request body, for clients that cannot send a body on DELETE.",
+        "schema": {
+          "type": "string",
+          "description": "Comma-separated contract line UUIDs. DELETE-only alternative to the request body, for clients that cannot send a body on DELETE."
+        }
+      }
+    ],
     "requestBodySchema": {
       "type": "object",
       "properties": {
@@ -16791,17 +16802,105 @@ export const chatApiRegistry: ChatApiRegistryEntry[] = [
     }
   },
   {
-    "id": "delete-_api_v1_contractlines_bulk_delete",
-    "method": "delete",
+    "id": "post-_api_v1_contractlines_bulk_delete",
+    "method": "post",
     "path": "/api/v1/contract-lines/bulk/delete",
-    "displayName": "Bulk delete contract lines (explicit route)",
-    "summary": "Bulk delete contract lines (explicit route)",
-    "description": "Same controller behavior as DELETE /api/v1/contract-lines/bulk.",
+    "displayName": "Bulk delete contract lines (POST alias)",
+    "summary": "Bulk delete contract lines (POST alias)",
+    "description": "Same controller behavior as DELETE /api/v1/contract-lines/bulk/delete, for clients that cannot send a body on DELETE.",
     "tags": [
       "Contract Lines"
     ],
     "approvalRequired": false,
     "parameters": [],
+    "requestBodySchema": {
+      "type": "object",
+      "properties": {
+        "contract_line_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "minItems": 1,
+          "maxItems": 50
+        }
+      },
+      "required": [
+        "contract_line_ids"
+      ]
+    },
+    "responseBodySchema": {
+      "type": "object",
+      "properties": {
+        "success": {
+          "type": "boolean",
+          "enum": [
+            true
+          ]
+        },
+        "data": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": {}
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": {}
+              }
+            }
+          ]
+        },
+        "meta": {
+          "type": "object",
+          "properties": {
+            "timestamp": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "version": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "timestamp",
+            "version"
+          ],
+          "additionalProperties": {}
+        }
+      },
+      "required": [
+        "success",
+        "data"
+      ]
+    }
+  },
+  {
+    "id": "delete-_api_v1_contractlines_bulk_delete",
+    "method": "delete",
+    "path": "/api/v1/contract-lines/bulk/delete",
+    "displayName": "Bulk delete contract lines (explicit route)",
+    "summary": "Bulk delete contract lines (explicit route)",
+    "description": "Same controller behavior as DELETE /api/v1/contract-lines/bulk. The ids may come from the request body or from the `contract_line_ids` query parameter.",
+    "tags": [
+      "Contract Lines"
+    ],
+    "approvalRequired": false,
+    "parameters": [
+      {
+        "name": "contract_line_ids",
+        "in": "query",
+        "required": false,
+        "description": "Comma-separated contract line UUIDs. DELETE-only alternative to the request body, for clients that cannot send a body on DELETE.",
+        "schema": {
+          "type": "string",
+          "description": "Comma-separated contract line UUIDs. DELETE-only alternative to the request body, for clients that cannot send a body on DELETE."
+        }
+      }
+    ],
     "requestBodySchema": {
       "type": "object",
       "properties": {
@@ -16949,17 +17048,121 @@ export const chatApiRegistry: ChatApiRegistryEntry[] = [
     }
   },
   {
-    "id": "delete-_api_v1_contractlines_bulk_removeservices",
-    "method": "delete",
+    "id": "post-_api_v1_contractlines_bulk_removeservices",
+    "method": "post",
     "path": "/api/v1/contract-lines/bulk/remove-services",
-    "displayName": "Bulk remove services from contract line",
-    "summary": "Bulk remove services from contract line",
-    "description": "Removes multiple services from one contract_line_id and returns per-service success/failure results.",
+    "displayName": "Bulk remove services from contract line (POST alias)",
+    "summary": "Bulk remove services from contract line (POST alias)",
+    "description": "Same controller behavior as DELETE /api/v1/contract-lines/bulk/remove-services, for clients that cannot send a body on DELETE.",
     "tags": [
       "Contract Lines"
     ],
     "approvalRequired": false,
     "parameters": [],
+    "requestBodySchema": {
+      "type": "object",
+      "properties": {
+        "contract_line_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "service_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "minItems": 1,
+          "maxItems": 20
+        }
+      },
+      "required": [
+        "contract_line_id",
+        "service_ids"
+      ]
+    },
+    "responseBodySchema": {
+      "type": "object",
+      "properties": {
+        "success": {
+          "type": "boolean",
+          "enum": [
+            true
+          ]
+        },
+        "data": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": {}
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": {}
+              }
+            }
+          ]
+        },
+        "meta": {
+          "type": "object",
+          "properties": {
+            "timestamp": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "version": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "timestamp",
+            "version"
+          ],
+          "additionalProperties": {}
+        }
+      },
+      "required": [
+        "success",
+        "data"
+      ]
+    }
+  },
+  {
+    "id": "delete-_api_v1_contractlines_bulk_removeservices",
+    "method": "delete",
+    "path": "/api/v1/contract-lines/bulk/remove-services",
+    "displayName": "Bulk remove services from contract line",
+    "summary": "Bulk remove services from contract line",
+    "description": "Removes multiple services from one contract_line_id and returns per-service success/failure results. The ids may come from the request body or, for clients that cannot send a body on DELETE, from the `contract_line_id` + `service_ids` query parameters.",
+    "tags": [
+      "Contract Lines"
+    ],
+    "approvalRequired": false,
+    "parameters": [
+      {
+        "name": "contract_line_id",
+        "in": "query",
+        "required": false,
+        "description": "Contract line UUID. DELETE-only alternative to the request body.",
+        "schema": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Contract line UUID. DELETE-only alternative to the request body."
+        }
+      },
+      {
+        "name": "service_ids",
+        "in": "query",
+        "required": false,
+        "description": "Comma-separated service UUIDs. DELETE-only alternative to the request body, for clients that cannot send a body on DELETE.",
+        "schema": {
+          "type": "string",
+          "description": "Comma-separated service UUIDs. DELETE-only alternative to the request body, for clients that cannot send a body on DELETE."
+        }
+      }
+    ],
     "requestBodySchema": {
       "type": "object",
       "properties": {
@@ -59013,7 +59216,7 @@ export const chatApiRegistry: ChatApiRegistryEntry[] = [
     "path": "/api/v1/contracts",
     "displayName": "Create contract",
     "summary": "Create contract",
-    "description": "Creates contract via ApiContractLineController.createContract() (v2 controller mounted under v1 route).",
+    "description": "Creates a client-owned contract the way the UI wizard does: header + client_contracts assignment (+ optional lines) in ONE transaction, so the contract appears in the product. client_id is required (400 otherwise). Responds 201.",
     "tags": [
       "Quotes & Contracts v1"
     ],
@@ -59101,25 +59304,851 @@ export const chatApiRegistry: ChatApiRegistryEntry[] = [
       "properties": {
         "client_id": {
           "type": "string",
-          "format": "uuid"
+          "format": "uuid",
+          "description": "REQUIRED. Owning client (owner_client_id is accepted as an alias). A contract is always client-owned; creating without a client is rejected with 400 so no unassigned, UI-invisible contract can be created."
         },
         "contract_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "contract_description": {
           "type": "string"
+        },
+        "billing_frequency": {
+          "type": "string",
+          "description": "monthly | quarterly | semi-annually | annually."
+        },
+        "start_date": {
+          "type": "string",
+          "description": "YYYY-MM-DD (or ISO datetime). Required: it is the assignment start date."
+        },
+        "end_date": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "active",
+            "draft",
+            "terminated",
+            "expired",
+            "published",
+            "archived"
+          ],
+          "description": "Defaults to draft semantics: a draft contract gets an inactive assignment."
+        },
+        "is_active": {
+          "type": "boolean"
+        },
+        "billing_profile_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "po_required": {
+          "type": "boolean"
+        },
+        "po_number": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "po_amount": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "lines": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "contract_line_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "custom_rate": {
+                "type": "number",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "contract_line_id"
+            ]
+          },
+          "description": "Optional contract lines attached in the same transaction. Any invalid line rolls back the header, the assignment and all lines."
+        }
+      },
+      "required": [
+        "client_id",
+        "contract_name",
+        "billing_frequency",
+        "start_date"
+      ]
+    },
+    "responseBodySchema": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": {}
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": {}
+              }
+            }
+          ]
+        },
+        "meta": {
+          "type": "object",
+          "additionalProperties": {}
+        }
+      },
+      "required": [
+        "data"
+      ]
+    }
+  },
+  {
+    "id": "get-_api_v1_contracts_contractid",
+    "method": "get",
+    "path": "/api/v1/contracts/{contractId}",
+    "displayName": "Get contract",
+    "summary": "Get contract",
+    "description": "Gets a contract with its assignments and contract lines.",
+    "tags": [
+      "Quotes & Contracts v1"
+    ],
+    "approvalRequired": false,
+    "parameters": [
+      {
+        "name": "contractId",
+        "in": "path",
+        "required": true,
+        "description": "Contract UUID from contracts.contract_id.",
+        "schema": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Contract UUID from contracts.contract_id."
+        }
+      }
+    ],
+    "responseBodySchema": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": {}
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": {}
+              }
+            }
+          ]
+        },
+        "meta": {
+          "type": "object",
+          "additionalProperties": {}
+        }
+      },
+      "required": [
+        "data"
+      ]
+    }
+  },
+  {
+    "id": "put-_api_v1_contracts_contractid",
+    "method": "put",
+    "path": "/api/v1/contracts/{contractId}",
+    "displayName": "Update contract",
+    "summary": "Update contract",
+    "description": "Updates contract header fields with the UI rules (system-managed contracts: 422; invoiced/expired restrictions: 409).",
+    "tags": [
+      "Quotes & Contracts v1"
+    ],
+    "approvalRequired": false,
+    "parameters": [
+      {
+        "name": "contractId",
+        "in": "path",
+        "required": true,
+        "description": "Contract UUID from contracts.contract_id.",
+        "schema": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Contract UUID from contracts.contract_id."
+        }
+      }
+    ],
+    "requestBodySchema": {
+      "type": "object",
+      "properties": {
+        "contract_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "contract_description": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "billing_frequency": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "active",
+            "draft",
+            "terminated",
+            "expired",
+            "published",
+            "archived"
+          ]
+        },
+        "is_active": {
+          "type": "boolean"
+        }
+      }
+    },
+    "responseBodySchema": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": {}
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": {}
+              }
+            }
+          ]
+        },
+        "meta": {
+          "type": "object",
+          "additionalProperties": {}
+        }
+      },
+      "required": [
+        "data"
+      ]
+    }
+  },
+  {
+    "id": "patch-_api_v1_contracts_contractid",
+    "method": "patch",
+    "path": "/api/v1/contracts/{contractId}",
+    "displayName": "Patch contract",
+    "summary": "Patch contract",
+    "description": "Alias of PUT (partial header update).",
+    "tags": [
+      "Quotes & Contracts v1"
+    ],
+    "approvalRequired": false,
+    "parameters": [
+      {
+        "name": "contractId",
+        "in": "path",
+        "required": true,
+        "description": "Contract UUID from contracts.contract_id.",
+        "schema": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Contract UUID from contracts.contract_id."
+        }
+      }
+    ],
+    "requestBodySchema": {
+      "type": "object",
+      "properties": {
+        "contract_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "contract_description": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "billing_frequency": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "active",
+            "draft",
+            "terminated",
+            "expired",
+            "published",
+            "archived"
+          ]
+        },
+        "is_active": {
+          "type": "boolean"
+        }
+      }
+    },
+    "responseBodySchema": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": {}
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": {}
+              }
+            }
+          ]
+        },
+        "meta": {
+          "type": "object",
+          "additionalProperties": {}
+        }
+      },
+      "required": [
+        "data"
+      ]
+    }
+  },
+  {
+    "id": "delete-_api_v1_contracts_contractid",
+    "method": "delete",
+    "path": "/api/v1/contracts/{contractId}",
+    "displayName": "Delete contract",
+    "summary": "Delete contract",
+    "description": "Deletes a contract with the UI rules: 404 not found, 422 system-managed, 409 has invoices. 204 on success.",
+    "tags": [
+      "Quotes & Contracts v1"
+    ],
+    "approvalRequired": false,
+    "parameters": [
+      {
+        "name": "contractId",
+        "in": "path",
+        "required": true,
+        "description": "Contract UUID from contracts.contract_id.",
+        "schema": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Contract UUID from contracts.contract_id."
+        }
+      }
+    ],
+    "responseBodySchema": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": {}
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": {}
+              }
+            }
+          ]
+        },
+        "meta": {
+          "type": "object",
+          "additionalProperties": {}
+        }
+      },
+      "required": [
+        "data"
+      ]
+    }
+  },
+  {
+    "id": "get-_api_v1_contracts_contractid_assignments",
+    "method": "get",
+    "path": "/api/v1/contracts/{contractId}/assignments",
+    "displayName": "List contract assignments",
+    "summary": "List contract assignments",
+    "description": "Lists client_contracts rows for the contract.",
+    "tags": [
+      "Quotes & Contracts v1"
+    ],
+    "approvalRequired": false,
+    "parameters": [
+      {
+        "name": "contractId",
+        "in": "path",
+        "required": true,
+        "description": "Contract UUID from contracts.contract_id.",
+        "schema": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Contract UUID from contracts.contract_id."
+        }
+      }
+    ],
+    "responseBodySchema": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": {}
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": {}
+              }
+            }
+          ]
+        },
+        "meta": {
+          "type": "object",
+          "additionalProperties": {}
+        }
+      },
+      "required": [
+        "data"
+      ]
+    }
+  },
+  {
+    "id": "post-_api_v1_contracts_contractid_assignments",
+    "method": "post",
+    "path": "/api/v1/contracts/{contractId}/assignments",
+    "displayName": "Create contract assignment",
+    "summary": "Create contract assignment",
+    "description": "Assigns an existing contract to its owning client (e.g. repairs a contract with no client_contracts row). 409 if already assigned, 422 if system-managed or client is not the owner.",
+    "tags": [
+      "Quotes & Contracts v1"
+    ],
+    "approvalRequired": false,
+    "parameters": [
+      {
+        "name": "contractId",
+        "in": "path",
+        "required": true,
+        "description": "Contract UUID from contracts.contract_id.",
+        "schema": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Contract UUID from contracts.contract_id."
+        }
+      }
+    ],
+    "requestBodySchema": {
+      "type": "object",
+      "properties": {
+        "client_id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Defaults to the contract owner; must equal it when supplied."
         },
         "start_date": {
           "type": "string"
         },
         "end_date": {
-          "type": "string"
+          "type": [
+            "string",
+            "null"
+          ]
         },
-        "billing_frequency": {
-          "type": "string"
+        "is_active": {
+          "type": "boolean",
+          "description": "Defaults to true only when the contract header is active and not draft."
+        },
+        "billing_profile_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "po_required": {
+          "type": "boolean"
+        },
+        "po_number": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "po_amount": {
+          "type": [
+            "number",
+            "null"
+          ]
         }
       },
       "required": [
-        "client_id"
+        "start_date"
       ]
     },
+    "responseBodySchema": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": {}
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": {}
+              }
+            }
+          ]
+        },
+        "meta": {
+          "type": "object",
+          "additionalProperties": {}
+        }
+      },
+      "required": [
+        "data"
+      ]
+    }
+  },
+  {
+    "id": "get-_api_v1_contracts_contractid_assignments_clientcontractid",
+    "method": "get",
+    "path": "/api/v1/contracts/{contractId}/assignments/{clientContractId}",
+    "displayName": "Get contract assignment",
+    "summary": "Get contract assignment",
+    "description": "Gets one assignment.",
+    "tags": [
+      "Quotes & Contracts v1"
+    ],
+    "approvalRequired": false,
+    "parameters": [
+      {
+        "name": "contractId",
+        "in": "path",
+        "required": true,
+        "description": "Contract UUID from contracts.contract_id.",
+        "schema": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Contract UUID from contracts.contract_id."
+        }
+      },
+      {
+        "name": "clientContractId",
+        "in": "path",
+        "required": true,
+        "description": "Assignment UUID from client_contracts.client_contract_id.",
+        "schema": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Assignment UUID from client_contracts.client_contract_id."
+        }
+      }
+    ],
+    "responseBodySchema": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": {}
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": {}
+              }
+            }
+          ]
+        },
+        "meta": {
+          "type": "object",
+          "additionalProperties": {}
+        }
+      },
+      "required": [
+        "data"
+      ]
+    }
+  },
+  {
+    "id": "put-_api_v1_contracts_contractid_assignments_clientcontractid",
+    "method": "put",
+    "path": "/api/v1/contracts/{contractId}/assignments/{clientContractId}",
+    "displayName": "Update contract assignment",
+    "summary": "Update contract assignment",
+    "description": "Updates dates/terms; is_active:true activates the assignment and contract.",
+    "tags": [
+      "Quotes & Contracts v1"
+    ],
+    "approvalRequired": false,
+    "parameters": [
+      {
+        "name": "contractId",
+        "in": "path",
+        "required": true,
+        "description": "Contract UUID from contracts.contract_id.",
+        "schema": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Contract UUID from contracts.contract_id."
+        }
+      },
+      {
+        "name": "clientContractId",
+        "in": "path",
+        "required": true,
+        "description": "Assignment UUID from client_contracts.client_contract_id.",
+        "schema": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Assignment UUID from client_contracts.client_contract_id."
+        }
+      }
+    ],
+    "requestBodySchema": {
+      "type": "object",
+      "properties": {
+        "start_date": {
+          "type": "string"
+        },
+        "end_date": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "is_active": {
+          "type": "boolean",
+          "description": "true activates the assignment and its contract header (UI \"Set to Active\")."
+        },
+        "billing_profile_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "po_required": {
+          "type": "boolean"
+        },
+        "po_number": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "po_amount": {
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      }
+    },
+    "responseBodySchema": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": {}
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": {}
+              }
+            }
+          ]
+        },
+        "meta": {
+          "type": "object",
+          "additionalProperties": {}
+        }
+      },
+      "required": [
+        "data"
+      ]
+    }
+  },
+  {
+    "id": "patch-_api_v1_contracts_contractid_assignments_clientcontractid",
+    "method": "patch",
+    "path": "/api/v1/contracts/{contractId}/assignments/{clientContractId}",
+    "displayName": "Patch contract assignment",
+    "summary": "Patch contract assignment",
+    "description": "Alias of PUT.",
+    "tags": [
+      "Quotes & Contracts v1"
+    ],
+    "approvalRequired": false,
+    "parameters": [
+      {
+        "name": "contractId",
+        "in": "path",
+        "required": true,
+        "description": "Contract UUID from contracts.contract_id.",
+        "schema": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Contract UUID from contracts.contract_id."
+        }
+      },
+      {
+        "name": "clientContractId",
+        "in": "path",
+        "required": true,
+        "description": "Assignment UUID from client_contracts.client_contract_id.",
+        "schema": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Assignment UUID from client_contracts.client_contract_id."
+        }
+      }
+    ],
+    "requestBodySchema": {
+      "type": "object",
+      "properties": {
+        "start_date": {
+          "type": "string"
+        },
+        "end_date": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "is_active": {
+          "type": "boolean",
+          "description": "true activates the assignment and its contract header (UI \"Set to Active\")."
+        },
+        "billing_profile_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "po_required": {
+          "type": "boolean"
+        },
+        "po_number": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "po_amount": {
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      }
+    },
+    "responseBodySchema": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": {}
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": {}
+              }
+            }
+          ]
+        },
+        "meta": {
+          "type": "object",
+          "additionalProperties": {}
+        }
+      },
+      "required": [
+        "data"
+      ]
+    }
+  },
+  {
+    "id": "delete-_api_v1_contracts_contractid_assignments_clientcontractid",
+    "method": "delete",
+    "path": "/api/v1/contracts/{contractId}/assignments/{clientContractId}",
+    "displayName": "Delete contract assignment",
+    "summary": "Delete contract assignment",
+    "description": "Removes an assignment unless invoices reference it (409; end it with an update instead). 204 on success.",
+    "tags": [
+      "Quotes & Contracts v1"
+    ],
+    "approvalRequired": false,
+    "parameters": [
+      {
+        "name": "contractId",
+        "in": "path",
+        "required": true,
+        "description": "Contract UUID from contracts.contract_id.",
+        "schema": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Contract UUID from contracts.contract_id."
+        }
+      },
+      {
+        "name": "clientContractId",
+        "in": "path",
+        "required": true,
+        "description": "Assignment UUID from client_contracts.client_contract_id.",
+        "schema": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Assignment UUID from client_contracts.client_contract_id."
+        }
+      }
+    ],
     "responseBodySchema": {
       "type": "object",
       "properties": {
@@ -59242,9 +60271,11 @@ export const chatApiRegistry: ChatApiRegistryEntry[] = [
         "name": "contractLineId",
         "in": "path",
         "required": true,
-        "description": "ContractLineId path parameter.",
+        "description": "Contract line UUID from contract_lines.contract_line_id.",
         "schema": {
-          "type": "string"
+          "type": "string",
+          "format": "uuid",
+          "description": "Contract line UUID from contract_lines.contract_line_id."
         }
       }
     ],
@@ -60596,6 +61627,20 @@ export const chatApiRegistry: ChatApiRegistryEntry[] = [
             "string",
             "null"
           ]
+        },
+        "refType": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "refId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
         }
       },
       "required": [
@@ -65269,6 +66314,10 @@ export const chatApiRegistry: ChatApiRegistryEntry[] = [
                 },
                 "contactsUpdate": {
                   "type": "boolean"
+                },
+                "dontNotifyCustomerDefault": {
+                  "type": "boolean",
+                  "description": "Tenant setting: every \"Don't notify the customer\" checkbox starts ticked."
                 }
               },
               "required": [
@@ -65281,7 +66330,8 @@ export const chatApiRegistry: ChatApiRegistryEntry[] = [
                 "clientsCreate",
                 "clientsUpdate",
                 "contactsCreate",
-                "contactsUpdate"
+                "contactsUpdate",
+                "dontNotifyCustomerDefault"
               ]
             },
             "formatting": {
