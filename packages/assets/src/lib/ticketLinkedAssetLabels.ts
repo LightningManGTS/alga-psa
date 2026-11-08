@@ -2,7 +2,7 @@ import { hasPermission } from '@alga-psa/auth/rbac';
 import { createTenantKnex, tenantDb } from '@alga-psa/db';
 import type { LabelLinkedAssetInfo, LabelRequestContext } from '@alga-psa/types';
 
-import { createAssetReadContext, isAssetReadAllowed } from './assetReadAuthorization';
+import { createAssetReadContext, isAssetReadAllowed, type AssetAuthUser } from './assetReadAuthorization';
 import { getOpenCustodyForAssets } from './custody/queries';
 import { formatCustodyForLabel, formatCustodyForLabelSubject, type CustodyLabelFacts } from './custody/labelFormat';
 import { getLinkedAssetInfoForAssets, type FormatCpuCoreCount, type LinkedAssetInfoBase } from './linkedAssetLabelInfo';
@@ -100,7 +100,7 @@ export async function getTicketLinkedAssetLabelParts(
     >('asset_id', 'asset_tag', 'serial_number', 'client_id', 'asset_type', 'name', 'manufacturer', 'model');
   const byId = new Map(assets.map((a) => [a.asset_id, a]));
 
-  const authContext = await createAssetReadContext(knex, context.tenant, context.user);
+  const authContext = await createAssetReadContext(knex, context.tenant, context.user as AssetAuthUser);
   const readable = new Map<string, boolean>();
   const canRead = async (assetId: string) => {
     const known = readable.get(assetId);
