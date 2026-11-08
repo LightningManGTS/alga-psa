@@ -19,7 +19,7 @@ describe('shared tenant table manifest', () => {
     const computed = computeTenantDeletionOrder(TENANT_TABLE_MANIFEST);
     expect(computed.violations).toEqual([]);
     expect(computed.order).toEqual(order);
-    expect(order).toHaveLength(601);
+    expect(order).toHaveLength(606);
     expect(new Set(order).size).toBe(order.length);
   });
 

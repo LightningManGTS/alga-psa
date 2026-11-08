@@ -11971,10 +11971,10 @@ export const chatApiRegistry: ChatApiRegistryEntry[] = [
         "name": "provider",
         "in": "path",
         "required": true,
-        "description": "RMM provider slug: ninjaone, levelio, tacticalrmm, tanium, datto, or huntress. Scheduled device sync is available for the first five; huntress exposes no device listing.",
+        "description": "RMM provider slug: ninjaone, levelio, tacticalrmm, tanium, datto, unifi, or huntress. Scheduled device sync is available for all but huntress, which exposes no device listing.",
         "schema": {
           "type": "string",
-          "description": "RMM provider slug: ninjaone, levelio, tacticalrmm, tanium, datto, or huntress. Scheduled device sync is available for the first five; huntress exposes no device listing."
+          "description": "RMM provider slug: ninjaone, levelio, tacticalrmm, tanium, datto, unifi, or huntress. Scheduled device sync is available for all but huntress, which exposes no device listing."
         }
       },
       {
@@ -12085,10 +12085,10 @@ export const chatApiRegistry: ChatApiRegistryEntry[] = [
         "name": "provider",
         "in": "path",
         "required": true,
-        "description": "RMM provider slug: ninjaone, levelio, tacticalrmm, tanium, datto, or huntress. Scheduled device sync is available for the first five; huntress exposes no device listing.",
+        "description": "RMM provider slug: ninjaone, levelio, tacticalrmm, tanium, datto, unifi, or huntress. Scheduled device sync is available for all but huntress, which exposes no device listing.",
         "schema": {
           "type": "string",
-          "description": "RMM provider slug: ninjaone, levelio, tacticalrmm, tanium, datto, or huntress. Scheduled device sync is available for the first five; huntress exposes no device listing."
+          "description": "RMM provider slug: ninjaone, levelio, tacticalrmm, tanium, datto, unifi, or huntress. Scheduled device sync is available for all but huntress, which exposes no device listing."
         }
       },
       {
@@ -12217,10 +12217,10 @@ export const chatApiRegistry: ChatApiRegistryEntry[] = [
         "name": "provider",
         "in": "path",
         "required": true,
-        "description": "RMM provider slug: ninjaone, levelio, tacticalrmm, tanium, datto, or huntress. Scheduled device sync is available for the first five; huntress exposes no device listing.",
+        "description": "RMM provider slug: ninjaone, levelio, tacticalrmm, tanium, datto, unifi, or huntress. Scheduled device sync is available for all but huntress, which exposes no device listing.",
         "schema": {
           "type": "string",
-          "description": "RMM provider slug: ninjaone, levelio, tacticalrmm, tanium, datto, or huntress. Scheduled device sync is available for the first five; huntress exposes no device listing."
+          "description": "RMM provider slug: ninjaone, levelio, tacticalrmm, tanium, datto, unifi, or huntress. Scheduled device sync is available for all but huntress, which exposes no device listing."
         }
       },
       {
@@ -64469,6 +64469,352 @@ export const chatApiRegistry: ChatApiRegistryEntry[] = [
     }
   },
   {
+    "id": "get-_api_v1_timeperiodsettings",
+    "method": "get",
+    "path": "/api/v1/time-period-settings",
+    "displayName": "List time period settings",
+    "summary": "List time period settings",
+    "description": "Returns every time period setting for the tenant, active or not, newest effective_from first. Settings drive time period generation.",
+    "tags": [
+      "Work Management v1"
+    ],
+    "approvalRequired": false,
+    "parameters": [
+      {
+        "name": "X-Alga-Act-As",
+        "in": "header",
+        "required": false,
+        "description": "Service-principal keys only. The user id of an active internal user to act as. The request then runs as that user (the effective user, recorded as author/actor) with the principal recorded as the delegating principal; permissions are the intersection of the principal and that user. Rejected with ACT_AS_NOT_ALLOWED when the principal is not allowed to act as, ACT_AS_INVALID_TARGET for a missing, inactive, client or service target, and ACT_AS_NOT_SUPPORTED when sent with a human-owned key.",
+        "schema": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Service-principal keys only. The user id of an active internal user to act as. The request then runs as that user (the effective user, recorded as author/actor) with the principal recorded as the delegating principal; permissions are the intersection of the principal and that user. Rejected with ACT_AS_NOT_ALLOWED when the principal is not allowed to act as, ACT_AS_INVALID_TARGET for a missing, inactive, client or service target, and ACT_AS_NOT_SUPPORTED when sent with a human-owned key."
+        }
+      }
+    ],
+    "responseBodySchema": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/WorkV1TimePeriodSettings"
+          }
+        }
+      },
+      "required": [
+        "data"
+      ]
+    }
+  },
+  {
+    "id": "post-_api_v1_timeperiodsettings",
+    "method": "post",
+    "path": "/api/v1/time-period-settings",
+    "displayName": "Create time period settings",
+    "summary": "Create time period settings",
+    "description": "Creates an active time period setting. When effective_from is omitted it defaults to the start of the period containing today in the caller's timezone; if an earlier setting ended on or after that day, the new setting starts the day after it ended (the default may then be in the future). An explicit effective_from is used as given. Returns 409 when the setting overlaps an active setting.",
+    "tags": [
+      "Work Management v1"
+    ],
+    "approvalRequired": false,
+    "parameters": [
+      {
+        "name": "X-Alga-Act-As",
+        "in": "header",
+        "required": false,
+        "description": "Service-principal keys only. The user id of an active internal user to act as. The request then runs as that user (the effective user, recorded as author/actor) with the principal recorded as the delegating principal; permissions are the intersection of the principal and that user. Rejected with ACT_AS_NOT_ALLOWED when the principal is not allowed to act as, ACT_AS_INVALID_TARGET for a missing, inactive, client or service target, and ACT_AS_NOT_SUPPORTED when sent with a human-owned key.",
+        "schema": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Service-principal keys only. The user id of an active internal user to act as. The request then runs as that user (the effective user, recorded as author/actor) with the principal recorded as the delegating principal; permissions are the intersection of the principal and that user. Rejected with ACT_AS_NOT_ALLOWED when the principal is not allowed to act as, ACT_AS_INVALID_TARGET for a missing, inactive, client or service target, and ACT_AS_NOT_SUPPORTED when sent with a human-owned key."
+        }
+      }
+    ],
+    "requestBodySchema": {
+      "type": "object",
+      "properties": {
+        "frequency": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "description": "Number of frequency_unit units per period (e.g. 1 with week = weekly)."
+        },
+        "frequency_unit": {
+          "type": "string",
+          "enum": [
+            "day",
+            "week",
+            "month",
+            "year"
+          ]
+        },
+        "start_day": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 31,
+          "description": "week: first weekday (1=Monday … 7=Sunday); month: first day of the month. Defaults to 1."
+        },
+        "end_day": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 31,
+          "description": "month: last day of the period, or 0 for the end of the month. Defaults to 0."
+        },
+        "start_month": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 12,
+          "description": "year: first month. Defaults to 1."
+        },
+        "start_day_of_month": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 31,
+          "description": "year: first day of start_month. Defaults to 1."
+        },
+        "end_month": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 12,
+          "description": "year: last month. Defaults to 12."
+        },
+        "end_day_of_month": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 31,
+          "description": "year: last day of end_month, or 0 for the end of the month. Defaults to 0."
+        },
+        "effective_from": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+          "description": "First day the setting is in force. When omitted, defaults to the start of the period containing today in the caller's timezone; if an earlier setting ended on or after that day, it starts the day after that setting ended."
+        },
+        "effective_to": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+          "description": "Last day the setting is in force (inclusive). Omit for open-ended."
+        }
+      },
+      "required": [
+        "frequency",
+        "frequency_unit"
+      ]
+    },
+    "responseBodySchema": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "$ref": "#/components/schemas/WorkV1TimePeriodSettings"
+        }
+      },
+      "required": [
+        "data"
+      ]
+    }
+  },
+  {
+    "id": "get-_api_v1_timeperiodsettings_id",
+    "method": "get",
+    "path": "/api/v1/time-period-settings/{id}",
+    "displayName": "Get time period settings",
+    "summary": "Get time period settings",
+    "description": "Gets one time period setting by time_period_settings_id.",
+    "tags": [
+      "Work Management v1"
+    ],
+    "approvalRequired": false,
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "UUID path identifier from underlying resource tables.",
+        "schema": {
+          "type": "string",
+          "format": "uuid",
+          "description": "UUID path identifier from underlying resource tables."
+        }
+      },
+      {
+        "name": "X-Alga-Act-As",
+        "in": "header",
+        "required": false,
+        "description": "Service-principal keys only. The user id of an active internal user to act as. The request then runs as that user (the effective user, recorded as author/actor) with the principal recorded as the delegating principal; permissions are the intersection of the principal and that user. Rejected with ACT_AS_NOT_ALLOWED when the principal is not allowed to act as, ACT_AS_INVALID_TARGET for a missing, inactive, client or service target, and ACT_AS_NOT_SUPPORTED when sent with a human-owned key.",
+        "schema": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Service-principal keys only. The user id of an active internal user to act as. The request then runs as that user (the effective user, recorded as author/actor) with the principal recorded as the delegating principal; permissions are the intersection of the principal and that user. Rejected with ACT_AS_NOT_ALLOWED when the principal is not allowed to act as, ACT_AS_INVALID_TARGET for a missing, inactive, client or service target, and ACT_AS_NOT_SUPPORTED when sent with a human-owned key."
+        }
+      }
+    ],
+    "responseBodySchema": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "$ref": "#/components/schemas/WorkV1TimePeriodSettings"
+        }
+      },
+      "required": [
+        "data"
+      ]
+    }
+  },
+  {
+    "id": "put-_api_v1_timeperiodsettings_id",
+    "method": "put",
+    "path": "/api/v1/time-period-settings/{id}",
+    "displayName": "Update time period settings",
+    "summary": "Update time period settings",
+    "description": "Applies a partial update. The merged setting is validated like a create and returns 409 when it overlaps another active setting. effective_to: null clears the end date; is_active: false takes the setting out of period generation and overlap checks.",
+    "tags": [
+      "Work Management v1"
+    ],
+    "approvalRequired": false,
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "UUID path identifier from underlying resource tables.",
+        "schema": {
+          "type": "string",
+          "format": "uuid",
+          "description": "UUID path identifier from underlying resource tables."
+        }
+      },
+      {
+        "name": "X-Alga-Act-As",
+        "in": "header",
+        "required": false,
+        "description": "Service-principal keys only. The user id of an active internal user to act as. The request then runs as that user (the effective user, recorded as author/actor) with the principal recorded as the delegating principal; permissions are the intersection of the principal and that user. Rejected with ACT_AS_NOT_ALLOWED when the principal is not allowed to act as, ACT_AS_INVALID_TARGET for a missing, inactive, client or service target, and ACT_AS_NOT_SUPPORTED when sent with a human-owned key.",
+        "schema": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Service-principal keys only. The user id of an active internal user to act as. The request then runs as that user (the effective user, recorded as author/actor) with the principal recorded as the delegating principal; permissions are the intersection of the principal and that user. Rejected with ACT_AS_NOT_ALLOWED when the principal is not allowed to act as, ACT_AS_INVALID_TARGET for a missing, inactive, client or service target, and ACT_AS_NOT_SUPPORTED when sent with a human-owned key."
+        }
+      }
+    ],
+    "requestBodySchema": {
+      "type": "object",
+      "properties": {
+        "frequency": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "description": "Number of frequency_unit units per period (e.g. 1 with week = weekly)."
+        },
+        "frequency_unit": {
+          "type": "string",
+          "enum": [
+            "day",
+            "week",
+            "month",
+            "year"
+          ]
+        },
+        "start_day": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 31,
+          "description": "week: first weekday (1=Monday … 7=Sunday); month: first day of the month. Defaults to 1."
+        },
+        "end_day": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 31,
+          "description": "month: last day of the period, or 0 for the end of the month. Defaults to 0."
+        },
+        "start_month": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 12,
+          "description": "year: first month. Defaults to 1."
+        },
+        "start_day_of_month": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 31,
+          "description": "year: first day of start_month. Defaults to 1."
+        },
+        "end_month": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 12,
+          "description": "year: last month. Defaults to 12."
+        },
+        "end_day_of_month": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 31,
+          "description": "year: last day of end_month, or 0 for the end of the month. Defaults to 0."
+        },
+        "effective_from": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+          "description": "First day the setting is in force. When omitted, defaults to the start of the period containing today in the caller's timezone; if an earlier setting ended on or after that day, it starts the day after that setting ended."
+        },
+        "effective_to": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+          "description": "Last day the setting is in force (inclusive); null clears it."
+        },
+        "is_active": {
+          "type": "boolean",
+          "description": "Inactive settings are ignored by period generation and overlap checks."
+        }
+      }
+    },
+    "responseBodySchema": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "$ref": "#/components/schemas/WorkV1TimePeriodSettings"
+        }
+      },
+      "required": [
+        "data"
+      ]
+    }
+  },
+  {
+    "id": "delete-_api_v1_timeperiodsettings_id",
+    "method": "delete",
+    "path": "/api/v1/time-period-settings/{id}",
+    "displayName": "Delete time period settings",
+    "summary": "Delete time period settings",
+    "description": "Deletes a time period setting. Time periods it already generated are kept.",
+    "tags": [
+      "Work Management v1"
+    ],
+    "approvalRequired": false,
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "UUID path identifier from underlying resource tables.",
+        "schema": {
+          "type": "string",
+          "format": "uuid",
+          "description": "UUID path identifier from underlying resource tables."
+        }
+      },
+      {
+        "name": "X-Alga-Act-As",
+        "in": "header",
+        "required": false,
+        "description": "Service-principal keys only. The user id of an active internal user to act as. The request then runs as that user (the effective user, recorded as author/actor) with the principal recorded as the delegating principal; permissions are the intersection of the principal and that user. Rejected with ACT_AS_NOT_ALLOWED when the principal is not allowed to act as, ACT_AS_INVALID_TARGET for a missing, inactive, client or service target, and ACT_AS_NOT_SUPPORTED when sent with a human-owned key.",
+        "schema": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Service-principal keys only. The user id of an active internal user to act as. The request then runs as that user (the effective user, recorded as author/actor) with the principal recorded as the delegating principal; permissions are the intersection of the principal and that user. Rejected with ACT_AS_NOT_ALLOWED when the principal is not allowed to act as, ACT_AS_INVALID_TARGET for a missing, inactive, client or service target, and ACT_AS_NOT_SUPPORTED when sent with a human-owned key."
+        }
+      }
+    ]
+  },
+  {
     "id": "get-_api_v1_quotes",
     "method": "get",
     "path": "/api/v1/quotes",
@@ -66204,7 +66550,7 @@ export const chatApiRegistry: ChatApiRegistryEntry[] = [
     "path": "/api/v1/contracts",
     "displayName": "Create contract",
     "summary": "Create contract",
-    "description": "Creates contract via ApiContractLineController.createContract() (v2 controller mounted under v1 route).",
+    "description": "Creates a client-owned contract the way the UI wizard does: header + client_contracts assignment (+ optional lines) in ONE transaction, so the contract appears in the product. client_id is required (400 otherwise). Responds 201.",
     "tags": [
       "Quotes & Contracts v1"
     ],
@@ -66303,25 +66649,961 @@ export const chatApiRegistry: ChatApiRegistryEntry[] = [
       "properties": {
         "client_id": {
           "type": "string",
-          "format": "uuid"
+          "format": "uuid",
+          "description": "REQUIRED. Owning client (owner_client_id is accepted as an alias). A contract is always client-owned; creating without a client is rejected with 400 so no unassigned, UI-invisible contract can be created."
         },
         "contract_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "contract_description": {
           "type": "string"
+        },
+        "billing_frequency": {
+          "type": "string",
+          "description": "monthly | quarterly | semi-annually | annually."
+        },
+        "start_date": {
+          "type": "string",
+          "description": "YYYY-MM-DD (or ISO datetime). Required: it is the assignment start date."
+        },
+        "end_date": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "active",
+            "draft",
+            "terminated",
+            "expired",
+            "published",
+            "archived"
+          ],
+          "description": "Defaults to draft semantics: a draft contract gets an inactive assignment."
+        },
+        "is_active": {
+          "type": "boolean"
+        },
+        "billing_profile_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "po_required": {
+          "type": "boolean"
+        },
+        "po_number": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "po_amount": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "lines": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "contract_line_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "custom_rate": {
+                "type": "number",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "contract_line_id"
+            ]
+          },
+          "description": "Optional contract lines attached in the same transaction. Any invalid line rolls back the header, the assignment and all lines."
+        }
+      },
+      "required": [
+        "client_id",
+        "contract_name",
+        "billing_frequency",
+        "start_date"
+      ]
+    },
+    "responseBodySchema": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": {}
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": {}
+              }
+            }
+          ]
+        },
+        "meta": {
+          "type": "object",
+          "additionalProperties": {}
+        }
+      },
+      "required": [
+        "data"
+      ]
+    }
+  },
+  {
+    "id": "get-_api_v1_contracts_contractid",
+    "method": "get",
+    "path": "/api/v1/contracts/{contractId}",
+    "displayName": "Get contract",
+    "summary": "Get contract",
+    "description": "Gets a contract with its assignments and contract lines.",
+    "tags": [
+      "Quotes & Contracts v1"
+    ],
+    "approvalRequired": false,
+    "parameters": [
+      {
+        "name": "contractId",
+        "in": "path",
+        "required": true,
+        "description": "Contract UUID from contracts.contract_id.",
+        "schema": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Contract UUID from contracts.contract_id."
+        }
+      },
+      {
+        "name": "X-Alga-Act-As",
+        "in": "header",
+        "required": false,
+        "description": "Service-principal keys only. The user id of an active internal user to act as. The request then runs as that user (the effective user, recorded as author/actor) with the principal recorded as the delegating principal; permissions are the intersection of the principal and that user. Rejected with ACT_AS_NOT_ALLOWED when the principal is not allowed to act as, ACT_AS_INVALID_TARGET for a missing, inactive, client or service target, and ACT_AS_NOT_SUPPORTED when sent with a human-owned key.",
+        "schema": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Service-principal keys only. The user id of an active internal user to act as. The request then runs as that user (the effective user, recorded as author/actor) with the principal recorded as the delegating principal; permissions are the intersection of the principal and that user. Rejected with ACT_AS_NOT_ALLOWED when the principal is not allowed to act as, ACT_AS_INVALID_TARGET for a missing, inactive, client or service target, and ACT_AS_NOT_SUPPORTED when sent with a human-owned key."
+        }
+      }
+    ],
+    "responseBodySchema": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": {}
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": {}
+              }
+            }
+          ]
+        },
+        "meta": {
+          "type": "object",
+          "additionalProperties": {}
+        }
+      },
+      "required": [
+        "data"
+      ]
+    }
+  },
+  {
+    "id": "put-_api_v1_contracts_contractid",
+    "method": "put",
+    "path": "/api/v1/contracts/{contractId}",
+    "displayName": "Update contract",
+    "summary": "Update contract",
+    "description": "Updates contract header fields with the UI rules (system-managed contracts: 422; invoiced/expired restrictions: 409).",
+    "tags": [
+      "Quotes & Contracts v1"
+    ],
+    "approvalRequired": false,
+    "parameters": [
+      {
+        "name": "contractId",
+        "in": "path",
+        "required": true,
+        "description": "Contract UUID from contracts.contract_id.",
+        "schema": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Contract UUID from contracts.contract_id."
+        }
+      },
+      {
+        "name": "X-Alga-Act-As",
+        "in": "header",
+        "required": false,
+        "description": "Service-principal keys only. The user id of an active internal user to act as. The request then runs as that user (the effective user, recorded as author/actor) with the principal recorded as the delegating principal; permissions are the intersection of the principal and that user. Rejected with ACT_AS_NOT_ALLOWED when the principal is not allowed to act as, ACT_AS_INVALID_TARGET for a missing, inactive, client or service target, and ACT_AS_NOT_SUPPORTED when sent with a human-owned key.",
+        "schema": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Service-principal keys only. The user id of an active internal user to act as. The request then runs as that user (the effective user, recorded as author/actor) with the principal recorded as the delegating principal; permissions are the intersection of the principal and that user. Rejected with ACT_AS_NOT_ALLOWED when the principal is not allowed to act as, ACT_AS_INVALID_TARGET for a missing, inactive, client or service target, and ACT_AS_NOT_SUPPORTED when sent with a human-owned key."
+        }
+      }
+    ],
+    "requestBodySchema": {
+      "type": "object",
+      "properties": {
+        "contract_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "contract_description": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "billing_frequency": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "active",
+            "draft",
+            "terminated",
+            "expired",
+            "published",
+            "archived"
+          ]
+        },
+        "is_active": {
+          "type": "boolean"
+        }
+      }
+    },
+    "responseBodySchema": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": {}
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": {}
+              }
+            }
+          ]
+        },
+        "meta": {
+          "type": "object",
+          "additionalProperties": {}
+        }
+      },
+      "required": [
+        "data"
+      ]
+    }
+  },
+  {
+    "id": "patch-_api_v1_contracts_contractid",
+    "method": "patch",
+    "path": "/api/v1/contracts/{contractId}",
+    "displayName": "Patch contract",
+    "summary": "Patch contract",
+    "description": "Alias of PUT (partial header update).",
+    "tags": [
+      "Quotes & Contracts v1"
+    ],
+    "approvalRequired": false,
+    "parameters": [
+      {
+        "name": "contractId",
+        "in": "path",
+        "required": true,
+        "description": "Contract UUID from contracts.contract_id.",
+        "schema": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Contract UUID from contracts.contract_id."
+        }
+      },
+      {
+        "name": "X-Alga-Act-As",
+        "in": "header",
+        "required": false,
+        "description": "Service-principal keys only. The user id of an active internal user to act as. The request then runs as that user (the effective user, recorded as author/actor) with the principal recorded as the delegating principal; permissions are the intersection of the principal and that user. Rejected with ACT_AS_NOT_ALLOWED when the principal is not allowed to act as, ACT_AS_INVALID_TARGET for a missing, inactive, client or service target, and ACT_AS_NOT_SUPPORTED when sent with a human-owned key.",
+        "schema": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Service-principal keys only. The user id of an active internal user to act as. The request then runs as that user (the effective user, recorded as author/actor) with the principal recorded as the delegating principal; permissions are the intersection of the principal and that user. Rejected with ACT_AS_NOT_ALLOWED when the principal is not allowed to act as, ACT_AS_INVALID_TARGET for a missing, inactive, client or service target, and ACT_AS_NOT_SUPPORTED when sent with a human-owned key."
+        }
+      }
+    ],
+    "requestBodySchema": {
+      "type": "object",
+      "properties": {
+        "contract_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "contract_description": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "billing_frequency": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "active",
+            "draft",
+            "terminated",
+            "expired",
+            "published",
+            "archived"
+          ]
+        },
+        "is_active": {
+          "type": "boolean"
+        }
+      }
+    },
+    "responseBodySchema": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": {}
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": {}
+              }
+            }
+          ]
+        },
+        "meta": {
+          "type": "object",
+          "additionalProperties": {}
+        }
+      },
+      "required": [
+        "data"
+      ]
+    }
+  },
+  {
+    "id": "delete-_api_v1_contracts_contractid",
+    "method": "delete",
+    "path": "/api/v1/contracts/{contractId}",
+    "displayName": "Delete contract",
+    "summary": "Delete contract",
+    "description": "Deletes a contract with the UI rules: 404 not found, 422 system-managed, 409 has invoices. 204 on success.",
+    "tags": [
+      "Quotes & Contracts v1"
+    ],
+    "approvalRequired": false,
+    "parameters": [
+      {
+        "name": "contractId",
+        "in": "path",
+        "required": true,
+        "description": "Contract UUID from contracts.contract_id.",
+        "schema": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Contract UUID from contracts.contract_id."
+        }
+      },
+      {
+        "name": "X-Alga-Act-As",
+        "in": "header",
+        "required": false,
+        "description": "Service-principal keys only. The user id of an active internal user to act as. The request then runs as that user (the effective user, recorded as author/actor) with the principal recorded as the delegating principal; permissions are the intersection of the principal and that user. Rejected with ACT_AS_NOT_ALLOWED when the principal is not allowed to act as, ACT_AS_INVALID_TARGET for a missing, inactive, client or service target, and ACT_AS_NOT_SUPPORTED when sent with a human-owned key.",
+        "schema": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Service-principal keys only. The user id of an active internal user to act as. The request then runs as that user (the effective user, recorded as author/actor) with the principal recorded as the delegating principal; permissions are the intersection of the principal and that user. Rejected with ACT_AS_NOT_ALLOWED when the principal is not allowed to act as, ACT_AS_INVALID_TARGET for a missing, inactive, client or service target, and ACT_AS_NOT_SUPPORTED when sent with a human-owned key."
+        }
+      }
+    ],
+    "responseBodySchema": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": {}
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": {}
+              }
+            }
+          ]
+        },
+        "meta": {
+          "type": "object",
+          "additionalProperties": {}
+        }
+      },
+      "required": [
+        "data"
+      ]
+    }
+  },
+  {
+    "id": "get-_api_v1_contracts_contractid_assignments",
+    "method": "get",
+    "path": "/api/v1/contracts/{contractId}/assignments",
+    "displayName": "List contract assignments",
+    "summary": "List contract assignments",
+    "description": "Lists client_contracts rows for the contract.",
+    "tags": [
+      "Quotes & Contracts v1"
+    ],
+    "approvalRequired": false,
+    "parameters": [
+      {
+        "name": "contractId",
+        "in": "path",
+        "required": true,
+        "description": "Contract UUID from contracts.contract_id.",
+        "schema": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Contract UUID from contracts.contract_id."
+        }
+      },
+      {
+        "name": "X-Alga-Act-As",
+        "in": "header",
+        "required": false,
+        "description": "Service-principal keys only. The user id of an active internal user to act as. The request then runs as that user (the effective user, recorded as author/actor) with the principal recorded as the delegating principal; permissions are the intersection of the principal and that user. Rejected with ACT_AS_NOT_ALLOWED when the principal is not allowed to act as, ACT_AS_INVALID_TARGET for a missing, inactive, client or service target, and ACT_AS_NOT_SUPPORTED when sent with a human-owned key.",
+        "schema": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Service-principal keys only. The user id of an active internal user to act as. The request then runs as that user (the effective user, recorded as author/actor) with the principal recorded as the delegating principal; permissions are the intersection of the principal and that user. Rejected with ACT_AS_NOT_ALLOWED when the principal is not allowed to act as, ACT_AS_INVALID_TARGET for a missing, inactive, client or service target, and ACT_AS_NOT_SUPPORTED when sent with a human-owned key."
+        }
+      }
+    ],
+    "responseBodySchema": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": {}
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": {}
+              }
+            }
+          ]
+        },
+        "meta": {
+          "type": "object",
+          "additionalProperties": {}
+        }
+      },
+      "required": [
+        "data"
+      ]
+    }
+  },
+  {
+    "id": "post-_api_v1_contracts_contractid_assignments",
+    "method": "post",
+    "path": "/api/v1/contracts/{contractId}/assignments",
+    "displayName": "Create contract assignment",
+    "summary": "Create contract assignment",
+    "description": "Assigns an existing contract to its owning client (e.g. repairs a contract with no client_contracts row). 409 if already assigned, 422 if system-managed or client is not the owner.",
+    "tags": [
+      "Quotes & Contracts v1"
+    ],
+    "approvalRequired": false,
+    "parameters": [
+      {
+        "name": "contractId",
+        "in": "path",
+        "required": true,
+        "description": "Contract UUID from contracts.contract_id.",
+        "schema": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Contract UUID from contracts.contract_id."
+        }
+      },
+      {
+        "name": "X-Alga-Act-As",
+        "in": "header",
+        "required": false,
+        "description": "Service-principal keys only. The user id of an active internal user to act as. The request then runs as that user (the effective user, recorded as author/actor) with the principal recorded as the delegating principal; permissions are the intersection of the principal and that user. Rejected with ACT_AS_NOT_ALLOWED when the principal is not allowed to act as, ACT_AS_INVALID_TARGET for a missing, inactive, client or service target, and ACT_AS_NOT_SUPPORTED when sent with a human-owned key.",
+        "schema": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Service-principal keys only. The user id of an active internal user to act as. The request then runs as that user (the effective user, recorded as author/actor) with the principal recorded as the delegating principal; permissions are the intersection of the principal and that user. Rejected with ACT_AS_NOT_ALLOWED when the principal is not allowed to act as, ACT_AS_INVALID_TARGET for a missing, inactive, client or service target, and ACT_AS_NOT_SUPPORTED when sent with a human-owned key."
+        }
+      }
+    ],
+    "requestBodySchema": {
+      "type": "object",
+      "properties": {
+        "client_id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Defaults to the contract owner; must equal it when supplied."
         },
         "start_date": {
           "type": "string"
         },
         "end_date": {
-          "type": "string"
+          "type": [
+            "string",
+            "null"
+          ]
         },
-        "billing_frequency": {
-          "type": "string"
+        "is_active": {
+          "type": "boolean",
+          "description": "Defaults to true only when the contract header is active and not draft."
+        },
+        "billing_profile_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "po_required": {
+          "type": "boolean"
+        },
+        "po_number": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "po_amount": {
+          "type": [
+            "number",
+            "null"
+          ]
         }
       },
       "required": [
-        "client_id"
+        "start_date"
       ]
     },
+    "responseBodySchema": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": {}
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": {}
+              }
+            }
+          ]
+        },
+        "meta": {
+          "type": "object",
+          "additionalProperties": {}
+        }
+      },
+      "required": [
+        "data"
+      ]
+    }
+  },
+  {
+    "id": "get-_api_v1_contracts_contractid_assignments_clientcontractid",
+    "method": "get",
+    "path": "/api/v1/contracts/{contractId}/assignments/{clientContractId}",
+    "displayName": "Get contract assignment",
+    "summary": "Get contract assignment",
+    "description": "Gets one assignment.",
+    "tags": [
+      "Quotes & Contracts v1"
+    ],
+    "approvalRequired": false,
+    "parameters": [
+      {
+        "name": "contractId",
+        "in": "path",
+        "required": true,
+        "description": "Contract UUID from contracts.contract_id.",
+        "schema": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Contract UUID from contracts.contract_id."
+        }
+      },
+      {
+        "name": "clientContractId",
+        "in": "path",
+        "required": true,
+        "description": "Assignment UUID from client_contracts.client_contract_id.",
+        "schema": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Assignment UUID from client_contracts.client_contract_id."
+        }
+      },
+      {
+        "name": "X-Alga-Act-As",
+        "in": "header",
+        "required": false,
+        "description": "Service-principal keys only. The user id of an active internal user to act as. The request then runs as that user (the effective user, recorded as author/actor) with the principal recorded as the delegating principal; permissions are the intersection of the principal and that user. Rejected with ACT_AS_NOT_ALLOWED when the principal is not allowed to act as, ACT_AS_INVALID_TARGET for a missing, inactive, client or service target, and ACT_AS_NOT_SUPPORTED when sent with a human-owned key.",
+        "schema": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Service-principal keys only. The user id of an active internal user to act as. The request then runs as that user (the effective user, recorded as author/actor) with the principal recorded as the delegating principal; permissions are the intersection of the principal and that user. Rejected with ACT_AS_NOT_ALLOWED when the principal is not allowed to act as, ACT_AS_INVALID_TARGET for a missing, inactive, client or service target, and ACT_AS_NOT_SUPPORTED when sent with a human-owned key."
+        }
+      }
+    ],
+    "responseBodySchema": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": {}
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": {}
+              }
+            }
+          ]
+        },
+        "meta": {
+          "type": "object",
+          "additionalProperties": {}
+        }
+      },
+      "required": [
+        "data"
+      ]
+    }
+  },
+  {
+    "id": "put-_api_v1_contracts_contractid_assignments_clientcontractid",
+    "method": "put",
+    "path": "/api/v1/contracts/{contractId}/assignments/{clientContractId}",
+    "displayName": "Update contract assignment",
+    "summary": "Update contract assignment",
+    "description": "Updates dates/terms; is_active:true activates the assignment and contract.",
+    "tags": [
+      "Quotes & Contracts v1"
+    ],
+    "approvalRequired": false,
+    "parameters": [
+      {
+        "name": "contractId",
+        "in": "path",
+        "required": true,
+        "description": "Contract UUID from contracts.contract_id.",
+        "schema": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Contract UUID from contracts.contract_id."
+        }
+      },
+      {
+        "name": "clientContractId",
+        "in": "path",
+        "required": true,
+        "description": "Assignment UUID from client_contracts.client_contract_id.",
+        "schema": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Assignment UUID from client_contracts.client_contract_id."
+        }
+      },
+      {
+        "name": "X-Alga-Act-As",
+        "in": "header",
+        "required": false,
+        "description": "Service-principal keys only. The user id of an active internal user to act as. The request then runs as that user (the effective user, recorded as author/actor) with the principal recorded as the delegating principal; permissions are the intersection of the principal and that user. Rejected with ACT_AS_NOT_ALLOWED when the principal is not allowed to act as, ACT_AS_INVALID_TARGET for a missing, inactive, client or service target, and ACT_AS_NOT_SUPPORTED when sent with a human-owned key.",
+        "schema": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Service-principal keys only. The user id of an active internal user to act as. The request then runs as that user (the effective user, recorded as author/actor) with the principal recorded as the delegating principal; permissions are the intersection of the principal and that user. Rejected with ACT_AS_NOT_ALLOWED when the principal is not allowed to act as, ACT_AS_INVALID_TARGET for a missing, inactive, client or service target, and ACT_AS_NOT_SUPPORTED when sent with a human-owned key."
+        }
+      }
+    ],
+    "requestBodySchema": {
+      "type": "object",
+      "properties": {
+        "start_date": {
+          "type": "string"
+        },
+        "end_date": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "is_active": {
+          "type": "boolean",
+          "description": "true activates the assignment and its contract header (UI \"Set to Active\")."
+        },
+        "billing_profile_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "po_required": {
+          "type": "boolean"
+        },
+        "po_number": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "po_amount": {
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      }
+    },
+    "responseBodySchema": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": {}
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": {}
+              }
+            }
+          ]
+        },
+        "meta": {
+          "type": "object",
+          "additionalProperties": {}
+        }
+      },
+      "required": [
+        "data"
+      ]
+    }
+  },
+  {
+    "id": "patch-_api_v1_contracts_contractid_assignments_clientcontractid",
+    "method": "patch",
+    "path": "/api/v1/contracts/{contractId}/assignments/{clientContractId}",
+    "displayName": "Patch contract assignment",
+    "summary": "Patch contract assignment",
+    "description": "Alias of PUT.",
+    "tags": [
+      "Quotes & Contracts v1"
+    ],
+    "approvalRequired": false,
+    "parameters": [
+      {
+        "name": "contractId",
+        "in": "path",
+        "required": true,
+        "description": "Contract UUID from contracts.contract_id.",
+        "schema": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Contract UUID from contracts.contract_id."
+        }
+      },
+      {
+        "name": "clientContractId",
+        "in": "path",
+        "required": true,
+        "description": "Assignment UUID from client_contracts.client_contract_id.",
+        "schema": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Assignment UUID from client_contracts.client_contract_id."
+        }
+      },
+      {
+        "name": "X-Alga-Act-As",
+        "in": "header",
+        "required": false,
+        "description": "Service-principal keys only. The user id of an active internal user to act as. The request then runs as that user (the effective user, recorded as author/actor) with the principal recorded as the delegating principal; permissions are the intersection of the principal and that user. Rejected with ACT_AS_NOT_ALLOWED when the principal is not allowed to act as, ACT_AS_INVALID_TARGET for a missing, inactive, client or service target, and ACT_AS_NOT_SUPPORTED when sent with a human-owned key.",
+        "schema": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Service-principal keys only. The user id of an active internal user to act as. The request then runs as that user (the effective user, recorded as author/actor) with the principal recorded as the delegating principal; permissions are the intersection of the principal and that user. Rejected with ACT_AS_NOT_ALLOWED when the principal is not allowed to act as, ACT_AS_INVALID_TARGET for a missing, inactive, client or service target, and ACT_AS_NOT_SUPPORTED when sent with a human-owned key."
+        }
+      }
+    ],
+    "requestBodySchema": {
+      "type": "object",
+      "properties": {
+        "start_date": {
+          "type": "string"
+        },
+        "end_date": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "is_active": {
+          "type": "boolean",
+          "description": "true activates the assignment and its contract header (UI \"Set to Active\")."
+        },
+        "billing_profile_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "po_required": {
+          "type": "boolean"
+        },
+        "po_number": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "po_amount": {
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      }
+    },
+    "responseBodySchema": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": {}
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": {}
+              }
+            }
+          ]
+        },
+        "meta": {
+          "type": "object",
+          "additionalProperties": {}
+        }
+      },
+      "required": [
+        "data"
+      ]
+    }
+  },
+  {
+    "id": "delete-_api_v1_contracts_contractid_assignments_clientcontractid",
+    "method": "delete",
+    "path": "/api/v1/contracts/{contractId}/assignments/{clientContractId}",
+    "displayName": "Delete contract assignment",
+    "summary": "Delete contract assignment",
+    "description": "Removes an assignment unless invoices reference it (409; end it with an update instead). 204 on success.",
+    "tags": [
+      "Quotes & Contracts v1"
+    ],
+    "approvalRequired": false,
+    "parameters": [
+      {
+        "name": "contractId",
+        "in": "path",
+        "required": true,
+        "description": "Contract UUID from contracts.contract_id.",
+        "schema": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Contract UUID from contracts.contract_id."
+        }
+      },
+      {
+        "name": "clientContractId",
+        "in": "path",
+        "required": true,
+        "description": "Assignment UUID from client_contracts.client_contract_id.",
+        "schema": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Assignment UUID from client_contracts.client_contract_id."
+        }
+      },
+      {
+        "name": "X-Alga-Act-As",
+        "in": "header",
+        "required": false,
+        "description": "Service-principal keys only. The user id of an active internal user to act as. The request then runs as that user (the effective user, recorded as author/actor) with the principal recorded as the delegating principal; permissions are the intersection of the principal and that user. Rejected with ACT_AS_NOT_ALLOWED when the principal is not allowed to act as, ACT_AS_INVALID_TARGET for a missing, inactive, client or service target, and ACT_AS_NOT_SUPPORTED when sent with a human-owned key.",
+        "schema": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Service-principal keys only. The user id of an active internal user to act as. The request then runs as that user (the effective user, recorded as author/actor) with the principal recorded as the delegating principal; permissions are the intersection of the principal and that user. Rejected with ACT_AS_NOT_ALLOWED when the principal is not allowed to act as, ACT_AS_INVALID_TARGET for a missing, inactive, client or service target, and ACT_AS_NOT_SUPPORTED when sent with a human-owned key."
+        }
+      }
+    ],
     "responseBodySchema": {
       "type": "object",
       "properties": {
@@ -66452,6 +67734,17 @@ export const chatApiRegistry: ChatApiRegistryEntry[] = [
         }
       },
       {
+        "name": "contractLineId",
+        "in": "path",
+        "required": true,
+        "description": "Contract line UUID from contract_lines.contract_line_id.",
+        "schema": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Contract line UUID from contract_lines.contract_line_id."
+        }
+      },
+      {
         "name": "X-Alga-Act-As",
         "in": "header",
         "required": false,
@@ -66460,15 +67753,6 @@ export const chatApiRegistry: ChatApiRegistryEntry[] = [
           "type": "string",
           "format": "uuid",
           "description": "Service-principal keys only. The user id of an active internal user to act as. The request then runs as that user (the effective user, recorded as author/actor) with the principal recorded as the delegating principal; permissions are the intersection of the principal and that user. Rejected with ACT_AS_NOT_ALLOWED when the principal is not allowed to act as, ACT_AS_INVALID_TARGET for a missing, inactive, client or service target, and ACT_AS_NOT_SUPPORTED when sent with a human-owned key."
-        }
-      },
-      {
-        "name": "contractLineId",
-        "in": "path",
-        "required": true,
-        "description": "ContractLineId path parameter.",
-        "schema": {
-          "type": "string"
         }
       }
     ],
@@ -67998,6 +69282,20 @@ export const chatApiRegistry: ChatApiRegistryEntry[] = [
             "string",
             "null"
           ]
+        },
+        "refType": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "refId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
         }
       },
       "required": [
