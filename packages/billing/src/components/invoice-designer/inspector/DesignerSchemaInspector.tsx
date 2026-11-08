@@ -338,11 +338,11 @@ const FieldBindingPicker: React.FC<FieldBindingPickerProps> = ({
         {label}
       </label>
       <div className="rounded-md border border-slate-200 bg-slate-50 px-2 py-2 dark:border-[rgb(var(--color-border-200))] dark:bg-[rgb(var(--color-border-100))]">
-        <div className="text-[10px] uppercase tracking-wide text-slate-500">
+        <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
           {t('designer.inspector.currentField', { defaultValue: 'Current' })}
         </div>
         <div className="text-sm font-medium text-slate-800 dark:text-slate-200">{currentLabel}</div>
-        <div className="text-[11px] font-mono text-slate-500">
+        <div className="text-[11px] font-mono text-muted-foreground">
           {normalizedBinding || t('designer.inspector.unbound', { defaultValue: 'Unbound' })}
         </div>
       </div>
@@ -371,13 +371,13 @@ const FieldBindingPicker: React.FC<FieldBindingPickerProps> = ({
         data-automation-id={`${domId}-results`}
       >
         {filteredOptions.length === 0 ? (
-          <p className="text-[11px] text-slate-500">
+          <p className="text-[11px] text-muted-foreground">
             {t('designer.palette.noFieldsMatch', { defaultValue: 'No fields match this search.' })}
           </p>
         ) : (
           Object.entries(groupedOptions).map(([category, categoryOptions]) => (
             <div key={category} className="space-y-1">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                 {t(`designer.palette.fields.categories.${category.toLowerCase().replace(/\s+/g, '-')}`, { defaultValue: category })}
               </p>
               {categoryOptions.map((option) => {
