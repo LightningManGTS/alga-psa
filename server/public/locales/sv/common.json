@@ -1666,7 +1666,27 @@
       "ticketTitle": "Skriv ut arbetsetiketter",
       "tooMany": "Du kan skriva ut högst {{max}} etiketter åt gången.",
       "unnamedAsset": "Namnlös tillgång",
-      "useTemplate": "Använd {{template}}"
+      "useTemplate": "Använd {{template}}",
+      "paperMismatchWarning": "Den här mallen är utformad för {{template}}-papper, men den valda layouten skriver ut på {{layout}}. Välj „Mallpapper“ eller matchande layout för hela ark, annars får innehållet inte plats.",
+      "worksheetPageSizeError": "Arbetsbladet matchar inte den valda utskriftslayouten. Använd „Mallpapper“ eller en layout med samma papper som mallen.",
+      "worksheetTextOverflowError": "Blad {{numbers}} innehåller text som inte får plats. Justera layouten eller förkorta innehållet före utskrift."
+    },
+    "layout": {
+      "template-preferred": "Mallens papper (standard)",
+      "roll-4x2": "En per etikett (rulle 4 × 2 tum)",
+      "letter-2x5": "Letter-ark, 2 × 5 (Avery 5163-stil)",
+      "a4-2x7": "A4-ark, 2 × 7 (99,1 × 38,1 mm-stil)",
+      "a4-full": "A4-ark, ett per sida",
+      "letter-full": "Letter-ark, en per sida"
+    },
+    "paper": {
+      "a4": "A4-ark",
+      "letter": "Letter-ark",
+      "legal": "Legal-ark"
+    },
+    "standardTemplates": {
+      "standard-ticket-customer-worksheet-a4": "Standard kundarbetsblad (A4)",
+      "standard-ticket-customer-worksheet": "Standardkundblad"
     }
   },
   "deleteEntity": {

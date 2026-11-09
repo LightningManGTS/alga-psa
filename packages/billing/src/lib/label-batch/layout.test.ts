@@ -2,7 +2,18 @@ import { describe, expect, it } from 'vitest';
 import { recordUrl, type LabelViewModel } from '@alga-psa/types';
 
 import { composeLabelSheets } from './composeLabelSheets';
-import { LabelLayoutError, planLabelBatch, resolveLabelBatchPdfOptions, type GridLayout } from './layout';
+import {
+  LabelLayoutError,
+  isWorksheetLabelMetadata,
+  labelMetadataPrefersPaperPage,
+  planLabelBatch,
+  resolveLabelBatchPdfOptions,
+  resolveTemplateDeclaredPageSizeMm,
+  resolveTemplatePreferredPageSizes,
+  resolveWorksheetDesignSizeMm,
+  WORKSHEET_MIN_WIDTH_MM,
+  type GridLayout,
+} from './layout';
 import { LabelRenderError, assertCanonicalLabelUrl } from './renderLabelBatchHtml';
 
 const grid = (overrides: Partial<GridLayout> = {}): GridLayout => ({
@@ -31,6 +42,56 @@ describe('planLabelBatch', () => {
       height: '50.8mm',
       preferCSSPageSize: true,
       margin: { top: '0mm', right: '0mm', bottom: '0mm', left: '0mm' },
+    });
+  });
+
+  describe('full-page worksheet geometry', () => {
+    const letter = { printSettings: { paperPreset: 'Letter' as const } };
+
+    it('uses the Letter preset when no custom page size is set', () => {
+      expect(resolveWorksheetDesignSizeMm(letter)).toEqual({ widthMm: 215.9, heightMm: 279.4 });
+      expect(labelMetadataPrefersPaperPage(letter)).toBe(true);
+      expect(resolveTemplatePreferredPageSizes([{ metadata: letter }])).toEqual({ width: 215.9, height: 279.4, unit: 'mm' });
+    });
+
+    it('accepts A4 by its own right: the gate is the A4 width floor, not a Letter comparison', () => {
+      const a4 = { printSettings: { paperPreset: 'A4' as const } };
+      expect(WORKSHEET_MIN_WIDTH_MM).toBe(210);
+      expect(resolveWorksheetDesignSizeMm(a4)).toEqual({ widthMm: 210, heightMm: 297 });
+      expect(resolveTemplateDeclaredPageSizeMm(a4)).toEqual({ widthMm: 210, heightMm: 297 });
+      expect(isWorksheetLabelMetadata(a4)).toBe(true);
+      expect(resolveTemplatePreferredPageSizes([{ metadata: a4 }])).toEqual({ width: 210, height: 297, unit: 'mm' });
+      // A4 and Letter templates can share one auto-selected print run only when they agree on a page.
+      expect(resolveTemplatePreferredPageSizes([{ metadata: a4 }, { metadata: letter }])).toBeNull();
+    });
+
+    it('accepts equivalent Letter dimensions expressed in different units', () => {
+      const custom = {
+        ...letter,
+        printSettings: { paperPreset: 'Letter' as const, customPageSize: { width: 8.5, height: 11, unit: 'in' as const } },
+      };
+      expect(resolveTemplatePreferredPageSizes([{ metadata: custom }, { metadata: letter }])).toEqual(custom.printSettings.customPageSize);
+    });
+
+    it('accepts larger portrait pages but treats landscape and square designs as tags', () => {
+      expect(resolveWorksheetDesignSizeMm({ printSettings: { paperPreset: 'Legal' } })).toEqual({ widthMm: 215.9, heightMm: 355.6 });
+      for (const width of [11, 12]) {
+        expect(resolveWorksheetDesignSizeMm({
+          printSettings: { customPageSize: { width, height: 11, unit: 'in' } },
+        })).toBeNull();
+      }
+    });
+
+    it('treats missing, thermal and too-narrow page sizes as tags rather than exposing worksheet data', () => {
+      expect(resolveWorksheetDesignSizeMm(undefined)).toBeNull();
+      expect(resolveWorksheetDesignSizeMm({})).toBeNull();
+      expect(resolveWorksheetDesignSizeMm({
+        printSettings: { paperPreset: 'Letter', customPageSize: { width: 4, height: 2, unit: 'in' } },
+      })).toBeNull();
+      // A5 (148 mm) is narrower than the A4 floor: a slip, not worksheet paper.
+      expect(resolveWorksheetDesignSizeMm({
+        printSettings: { customPageSize: { width: 148, height: 210, unit: 'mm' } },
+      })).toBeNull();
     });
   });
 

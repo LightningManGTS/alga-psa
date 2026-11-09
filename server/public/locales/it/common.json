@@ -1666,7 +1666,27 @@
       "ticketTitle": "Stampa etichette di lavoro",
       "tooMany": "Puoi stampare al massimo {{max}} etichette alla volta.",
       "unnamedAsset": "Asset senza nome",
-      "useTemplate": "Usa {{template}}"
+      "useTemplate": "Usa {{template}}",
+      "paperMismatchWarning": "Questo modello è progettato per carta {{template}}, ma il layout selezionato stampa su {{layout}}. Scegli „Carta del modello“ o il layout a foglio intero corrispondente, altrimenti il contenuto non starà.",
+      "worksheetPageSizeError": "Il foglio di lavoro non corrisponde al layout di stampa selezionato. Usa „Carta del modello“ o un layout con la stessa carta del modello.",
+      "worksheetTextOverflowError": "Il foglio {{numbers}} contiene testo che non entra. Modifica il layout o riduci il contenuto prima di stampare."
+    },
+    "layout": {
+      "template-preferred": "Carta del modello (predefinita)",
+      "roll-4x2": "Una per etichetta (rotolo 4 × 2 in)",
+      "letter-2x5": "Foglio Letter, 2 × 5 (stile Avery 5163)",
+      "a4-2x7": "Foglio A4, 2 × 7 (stile 99,1 × 38,1 mm)",
+      "a4-full": "Foglio A4, uno per pagina",
+      "letter-full": "Foglio Letter, uno per pagina"
+    },
+    "paper": {
+      "a4": "Foglio A4",
+      "letter": "Foglio Letter",
+      "legal": "Foglio Legal"
+    },
+    "standardTemplates": {
+      "standard-ticket-customer-worksheet-a4": "Foglio di lavoro cliente standard (A4)",
+      "standard-ticket-customer-worksheet": "Foglio cliente standard"
     }
   },
   "deleteEntity": {

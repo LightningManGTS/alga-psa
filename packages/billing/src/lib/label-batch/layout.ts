@@ -7,6 +7,7 @@ import {
   type CustomPageSize,
   type InvoicePaperPresetId,
   type InvoicePdfPrintOptions,
+  type LabelPrintErrorCode,
 } from '@alga-psa/types';
 
 /**
@@ -65,9 +66,13 @@ export interface LabelBatchGeometry {
 }
 
 export class LabelLayoutError extends Error {
-  constructor(message: string) {
+  readonly errorCode?: LabelPrintErrorCode;
+  readonly worksheetNumbers?: number[];
+  constructor(message: string, details?: { errorCode: LabelPrintErrorCode; worksheetNumbers?: number[] }) {
     super(message);
     this.name = 'LabelLayoutError';
+    this.errorCode = details?.errorCode;
+    this.worksheetNumbers = details?.worksheetNumbers;
   }
 }
 
@@ -207,3 +212,93 @@ export function resolveLabelBatchPdfOptions(geometry: LabelBatchGeometry): Invoi
 }
 
 export const LABEL_SHEET_MIN_MM = CUSTOM_PAGE_SIZE_MM_RANGE.min;
+
+/**
+ * Page size range a template may ask the printer for on its own (the print dialog's "template paper"
+ * default). Wider than the schema's absolute bounds (10 - 1200 mm) on the small end because a page
+ * below ~60 mm is a die-cut tag, not paper a normal printer holds, and belongs on the roll layout.
+ */
+export const LABEL_TEMPLATE_FIT_PAGE_MM_RANGE = { min: 60, max: 1200 } as const;
+
+type LabelTemplatePageMetadata = {
+  printSettings?: { customPageSize?: CustomPageSize; paperPreset?: InvoicePaperPresetId };
+};
+
+/**
+ * The narrowest portrait paper a full-page worksheet may use. A4 (210 mm) is the narrower of the two
+ * standard office papers — Letter (215.9 mm) is wider — so one width floor admits both, and neither
+ * dimension is compared against a specific sheet (an A4 worksheet is 5.9 mm narrower than Letter and
+ * still fits A4 paper). Anything narrower than A4 is a tag or slip, not worksheet paper.
+ */
+export const WORKSHEET_MIN_WIDTH_MM = 210;
+
+/** The page a template declares for itself in mm: an explicit custom size, else its paper preset. */
+export function resolveTemplateDeclaredPageSizeMm(
+  metadata?: LabelTemplatePageMetadata | null
+): { widthMm: number; heightMm: number } | null {
+  const custom = metadata?.printSettings?.customPageSize;
+  if (custom) {
+    if (validateCustomPageSize(custom)) return null;
+    return customPageSizeToMm(custom);
+  }
+  const preset = metadata?.printSettings?.paperPreset
+    ? INVOICE_PAPER_PRESET_REGISTRY[metadata.printSettings.paperPreset]
+    : null;
+  return preset ? { widthMm: preset.widthMm, heightMm: preset.heightMm } : null;
+}
+
+/**
+ * True when a ticket-work-tag template's own page makes it a full-page customer worksheet rather
+ * than a 4 x 2 in tag: portrait paper at least A4-wide (Letter, A4, Legal, A3, ...). The declared
+ * page size is the only gate — there is no separate worksheet flag.
+ */
+export function isWorksheetLabelMetadata(metadata?: LabelTemplatePageMetadata | null): boolean {
+  const size = resolveTemplateDeclaredPageSizeMm(metadata);
+  if (!size) return false;
+  return size.heightMm > size.widthMm && size.widthMm + 0.05 >= WORKSHEET_MIN_WIDTH_MM;
+}
+
+/** The worksheet design size a template asks for, or null when its page is not worksheet paper. */
+export function resolveWorksheetDesignSizeMm(
+  metadata?: LabelTemplatePageMetadata | null
+): { widthMm: number; heightMm: number } | null {
+  return isWorksheetLabelMetadata(metadata) ? resolveTemplateDeclaredPageSizeMm(metadata) : null;
+}
+
+/** True when a template's own page size is paper an ordinary printer holds (a worksheet, not a tag). */
+export function labelMetadataPrefersPaperPage(
+  metadata?: LabelTemplatePageMetadata | null
+): boolean {
+  const size = resolveTemplateDeclaredPageSizeMm(metadata);
+  if (!size) return false;
+  const { widthMm, heightMm } = size;
+  const { min, max } = LABEL_TEMPLATE_FIT_PAGE_MM_RANGE;
+  return widthMm >= min && widthMm <= max && heightMm >= min && heightMm <= max;
+}
+
+/**
+ * The page size every template in the batch asks for, when they all agree on one explicit
+ * `customPageSize` (one label per page) that ordinary paper can hold. Returns null otherwise, which
+ * keeps the caller's default layout. This is what lets a Letter worksheet template print on Letter
+ * without the caller having to pick the paper twice.
+ */
+export function resolveTemplatePreferredPageSizes(
+  templates: readonly { metadata?: LabelTemplatePageMetadata | undefined }[]
+): CustomPageSize | null {
+  if (templates.length === 0) return null;
+  let preferred: CustomPageSize | null = null;
+  for (const template of templates) {
+    const worksheetSize = resolveWorksheetDesignSizeMm(template.metadata);
+    const pageSize = template.metadata?.printSettings?.customPageSize ??
+      (worksheetSize ? { width: worksheetSize.widthMm, height: worksheetSize.heightMm, unit: 'mm' as const } : undefined);
+    if (!pageSize || !labelMetadataPrefersPaperPage(template.metadata)) return null;
+    if (preferred === null) {
+      preferred = pageSize;
+    } else {
+      const a = customPageSizeToMm(preferred);
+      const b = customPageSizeToMm(pageSize);
+      if (Math.abs(a.widthMm - b.widthMm) > EPSILON_MM || Math.abs(a.heightMm - b.heightMm) > EPSILON_MM) return null;
+    }
+  }
+  return preferred;
+}
