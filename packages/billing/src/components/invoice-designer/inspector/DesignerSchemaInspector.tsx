@@ -296,7 +296,7 @@ const FieldBindingPicker: React.FC<FieldBindingPickerProps> = ({
     ? t(`designer.fields.${normalizedBinding.replace(/\./g, '_')}.label`, {
         defaultValue: resolveDocumentFieldLabel(normalizedBinding),
       })
-    : t('designer.inspector.noFieldSelected', { defaultValue: 'No field selected' });
+    : t('designer.inspector.binding.noFieldSelected', { defaultValue: 'No field selected' });
 
   if (customMode) {
     return (
@@ -313,7 +313,7 @@ const FieldBindingPicker: React.FC<FieldBindingPickerProps> = ({
           onBlur={(event) => applyNormalized(path, normalizeString(event.target.value), true)}
         />
         <p className="text-[11px] text-slate-500">
-          {t('designer.inspector.bindingPathHint', {
+          {t('designer.inspector.binding.customHint', {
             defaultValue: 'Type any binding path when the field you need is not listed.',
           })}
         </p>
@@ -327,7 +327,7 @@ const FieldBindingPicker: React.FC<FieldBindingPickerProps> = ({
             setCustomMode(false);
           }}
         >
-          {t('designer.inspector.useFieldPicker', { defaultValue: 'Use field picker' })}
+          {t('designer.inspector.binding.useFieldPicker', { defaultValue: 'Use field picker' })}
         </button>
       </div>
     );
@@ -340,17 +340,17 @@ const FieldBindingPicker: React.FC<FieldBindingPickerProps> = ({
       </label>
       <div className="rounded-md border border-slate-200 bg-slate-50 px-2 py-2 dark:border-[rgb(var(--color-border-200))] dark:bg-[rgb(var(--color-border-100))]">
         <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
-          {t('designer.inspector.currentField', { defaultValue: 'Current' })}
+          {t('designer.inspector.binding.current', { defaultValue: 'Current' })}
         </div>
         <div className="text-sm font-medium text-slate-800 dark:text-slate-200">{currentLabel}</div>
         <div className="text-[11px] font-mono text-muted-foreground">
-          {normalizedBinding || t('designer.inspector.unbound', { defaultValue: 'Unbound' })}
+          {normalizedBinding || t('designer.inspector.binding.unbound', { defaultValue: 'Unbound' })}
         </div>
       </div>
       <Input
         id={`${domId}-search`}
         value={query}
-        placeholder={t('designer.inspector.searchDataFields', { defaultValue: 'Search data fields…' })}
+        placeholder={t('designer.inspector.binding.searchFields', { defaultValue: 'Search fields...' })}
         data-automation-id={`${domId}-search`}
         onChange={(event) => setQuery(event.target.value)}
         onKeyDown={(event) => {
@@ -373,7 +373,7 @@ const FieldBindingPicker: React.FC<FieldBindingPickerProps> = ({
       >
         {filteredOptions.length === 0 ? (
           <p className="text-[11px] text-muted-foreground">
-            {t('designer.palette.noFieldsMatch', { defaultValue: 'No fields match this search.' })}
+            {t('designer.inspector.binding.noMatches', { defaultValue: 'No matching fields.' })}
           </p>
         ) : (
           Object.entries(groupedOptions).map(([category, categoryOptions]) => (
@@ -427,7 +427,7 @@ const FieldBindingPicker: React.FC<FieldBindingPickerProps> = ({
         data-automation-id={`${domId}-use-custom`}
         onClick={() => setCustomMode(true)}
       >
-        {t('designer.inspector.useCustomPath', { defaultValue: 'Use custom path' })}
+        {t('designer.inspector.binding.useCustomPath', { defaultValue: 'Use custom path' })}
       </button>
     </div>
   );
@@ -478,6 +478,7 @@ const CssLengthStepperField: React.FC<CssLengthFieldProps> = ({
   defaultUnit,
   applyNormalized,
 }) => {
+  const { t } = useTranslation('msp/invoicing');
   const parsed = useMemo(
     () => parseCssLength(rawValue, { allowedUnits, defaultUnit }),
     [allowedUnits, defaultUnit, rawValue]
@@ -532,7 +533,7 @@ const CssLengthStepperField: React.FC<CssLengthFieldProps> = ({
       </div>
       {parsed.isCustom && parsed.raw ? (
         <p className="mt-1 text-[11px] text-amber-600 dark:text-amber-400">
-          Custom CSS value preserved until edited: {parsed.raw}
+          {t('designer.inspector.customCssPreserved', { defaultValue: 'Custom CSS value preserved until edited:' })} {parsed.raw}
         </p>
       ) : null}
     </div>
@@ -1039,8 +1040,8 @@ export const DesignerSchemaInspector: React.FC<Props> = ({ node, nodesById, tab 
                   type="button"
                   id={`${domId}-color-picker`}
                   className="h-10 w-10 shrink-0 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-[rgb(var(--color-card))] p-1 transition-colors hover:border-slate-400 dark:hover:border-slate-500"
-                  title={`Pick ${field.label.toLowerCase()}`}
-                  aria-label={`Pick ${field.label.toLowerCase()}`}
+                  title={t('designer.inspector.pickField', { defaultValue: 'Pick {{field}}', field: field.label.toLowerCase() })}
+                  aria-label={t('designer.inspector.pickField', { defaultValue: 'Pick {{field}}', field: field.label.toLowerCase() })}
                 >
                   <span
                     className="block h-full w-full rounded"
