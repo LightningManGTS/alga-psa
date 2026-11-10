@@ -41,9 +41,29 @@ describe('projectCoManagedNotificationSnapshot', () => {
   });
 
   it('keeps allowed fields and conversation content for an unrelated redaction', () => {
-    const projected = projectCoManagedNotificationSnapshot(['priority'], { ticketTitle: 'Visible', commentPreview: 'visible comment' });
-    expect(projected).toMatchObject({ ticketTitle: 'Visible', commentPreview: 'visible comment', conversationSuppressed: false });
+    const projected = projectCoManagedNotificationSnapshot(['priority'], {
+      ticketTitle: 'Visible', commentPreview: 'visible comment',
+      description: 'Visible description', descriptionHtml: '<p>Visible description</p>', descriptionText: 'Visible description',
+    });
+    expect(projected).toMatchObject({
+      ticketTitle: 'Visible', commentPreview: 'visible comment', conversationSuppressed: false,
+      description: 'Visible description', descriptionHtml: '<p>Visible description</p>', descriptionText: 'Visible description',
+    });
   });
+
+  it.each(['description', 'tickets.description', 'ticket_description', 'attributes.description', 'tickets.attributes.description'])(
+    'redacts every description projection for %s and its fields-prefixed alias',
+    (alias) => {
+      const source = { ticketTitle: 'Visible', description: 'Private description',
+        descriptionHtml: '<table><tr><td>Private description</td></tr></table>', descriptionText: 'Private description' };
+      for (const redaction of [alias, `fields.${alias}`]) {
+        expect(projectCoManagedNotificationSnapshot([redaction], source)).toMatchObject({
+          description: null, descriptionHtml: null, descriptionText: null,
+        });
+      }
+      expect(source.descriptionHtml).toContain('Private description');
+    },
+  );
 
   it.each(['contact_email', 'fields.contact_email'])('hides requester email composites for %s', alias => {
     const row = { requesterName: 'Visible requester', requesterEmail: 'hidden@example.test',

@@ -13,7 +13,7 @@ import {
 import { sendEventEmail, SendEmailParams } from '../../notifications/sendEventEmail';
 import {
   buildTicketEmailDetailBlocks,
-  clientFacingDetailBlocks,
+  closedClientDetailBlocks,
   emptyTicketEmailDetailBlocks,
   type TicketEmailDetailBlocks,
 } from '../../notifications/ticketEmailDetailBlocks';
@@ -1782,6 +1782,7 @@ async function handleTicketUpdated(event: TicketUpdatedEvent): Promise<void> {
     const descriptionFormatting = formatBlockNoteContent(rawDescription);
     const descriptionText = descriptionFormatting.text.trim();
     const description = descriptionText || 'No description provided.';
+    const descriptionHtml = descriptionText ? descriptionFormatting.html : `<p>${escapeHtml(description)}</p>`;
 
     // Format changes with database lookups
     const formattedChanges = await formatChanges(db, payload.changes || {}, tenantId, emailTimeZone, emailLocale);
@@ -1799,6 +1800,8 @@ async function handleTicketUpdated(event: TicketUpdatedEvent): Promise<void> {
       id: ticket.ticket_number,
       title: ticket.title,
       description,
+      descriptionText: description,
+      descriptionHtml,
       priority: priorityName,
       priorityColor,
       status: statusName,
@@ -2206,6 +2209,7 @@ export async function handleAccumulatedTicketUpdates(notification: PendingNotifi
     const descriptionFormatting = formatBlockNoteContent(rawDescription);
     const descriptionText = descriptionFormatting.text.trim();
     const description = descriptionText || 'No description provided.';
+    const descriptionHtml = descriptionText ? descriptionFormatting.html : `<p>${escapeHtml(description)}</p>`;
 
     // Resolve timezone for email formatting (tenant-level, no single userId for accumulated changes)
     const emailTimeZone = await resolveEffectiveTimeZone(db, tenantId);
@@ -2223,6 +2227,8 @@ export async function handleAccumulatedTicketUpdates(notification: PendingNotifi
       id: ticket.ticket_number,
       title: ticket.title,
       description,
+      descriptionText: description,
+      descriptionHtml,
       priority: priorityName,
       priorityColor,
       status: statusName,
@@ -2519,6 +2525,7 @@ async function sendTicketAssignedNotifications(
     const descriptionFormatting = formatBlockNoteContent(rawDescription);
     const descriptionText = descriptionFormatting.text.trim();
     const description = descriptionText || 'No description provided.';
+    const descriptionHtml = descriptionText ? descriptionFormatting.html : `<p>${escapeHtml(description)}</p>`;
 
     const { internalUrl, portalUrl } = await resolveTicketLinks(db, tenantId, ticket.ticket_id, ticket.ticket_number);
 
@@ -2526,6 +2533,8 @@ async function sendTicketAssignedNotifications(
       id: ticket.ticket_number,
       title: ticket.title,
       description,
+      descriptionText: description,
+      descriptionHtml,
       priority: priorityName,
       priorityColor,
       status: statusName,
@@ -2967,6 +2976,7 @@ async function handleTicketCommentAdded(event: TicketCommentAddedEvent): Promise
     const descriptionFormatting = formatBlockNoteContent(rawDescription);
     const descriptionText = descriptionFormatting.text.trim();
     const description = descriptionText || 'No description provided.';
+    const descriptionHtml = descriptionText ? descriptionFormatting.html : `<p>${escapeHtml(description)}</p>`;
 
     // Get all additional resources
     const additionalResources = await fetchAdditionalTicketResources(db, tenantId, payload.ticketId);
@@ -3007,6 +3017,8 @@ async function handleTicketCommentAdded(event: TicketCommentAddedEvent): Promise
       id: ticket.ticket_number,
       title: ticket.title,
       description,
+      descriptionText: description,
+      descriptionHtml,
       priority: priorityName,
       priorityColor,
       status: statusName,
@@ -3171,6 +3183,7 @@ async function handleTicketCommentAdded(event: TicketCommentAddedEvent): Promise
           board: projectedContext.ticket.board, categoryDetails: projectedContext.ticket.categoryDetails,
           category: projectedContext.ticket.category, subcategory: projectedContext.ticket.subcategory,
           ticketUrl: projectedContext.ticket.url, description: projectedContext.ticket.description,
+          descriptionHtml: projectedContext.ticket.descriptionHtml, descriptionText: projectedContext.ticket.descriptionText,
         }) : null;
         if (projection) {
           Object.assign(projectedContext.ticket, {
@@ -3184,6 +3197,7 @@ async function handleTicketCommentAdded(event: TicketCommentAddedEvent): Promise
             metaLine: projection.metaLine, board: projection.board,
             categoryDetails: projection.categoryDetails, category: projection.category,
             subcategory: projection.subcategory, url: projection.ticketUrl, description: projection.description,
+            descriptionHtml: projection.descriptionHtml, descriptionText: projection.descriptionText,
           });
           if (projection.authorName === null) projectedContext.comment.author = 'A team member';
           if (projection.conversationSuppressed) Object.assign(projectedContext.comment, { content: '', html: '', text: '', plainText: '', rawContent: null });
@@ -3535,12 +3549,17 @@ function buildClosedTicketSummary(ticket: NonNullable<TicketEmailRow>) {
   if (!rawDescription && 'description' in ticket) {
     rawDescription = safeString(ticket.description);
   }
-  const description = formatBlockNoteContent(rawDescription).text.trim() || 'No description provided.';
+  const descriptionFormatting = formatBlockNoteContent(rawDescription);
+  const descriptionText = descriptionFormatting.text.trim();
+  const description = descriptionText || 'No description provided.';
+  const descriptionHtml = descriptionText ? descriptionFormatting.html : `<p>${escapeHtml(description)}</p>`;
 
   return {
     id: ticket.ticket_number,
     title: ticket.title,
     description,
+    descriptionText: description,
+    descriptionHtml,
     priority,
     priorityColor: safeString(ticket.priority_color) || '#8A4DEA',
     status,
@@ -3717,7 +3736,7 @@ async function handleTicketClosed(event: TicketClosedEvent): Promise<void> {
       });
       const blocks = await getDetailBlocks(locale, detailScope);
       const audienceBlocks = params.template === 'ticket-closed-client'
-        ? clientFacingDetailBlocks(blocks)
+        ? closedClientDetailBlocks(blocks)
         : blocks;
       // The flag reports whether a message really went out, so the Cc/Bcc
       // fallback below never treats a gated send as "the requester was reached".
