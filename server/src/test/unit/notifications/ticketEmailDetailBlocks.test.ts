@@ -123,6 +123,7 @@ describe('buildTicketEmailDetailBlocks', () => {
     expect(blocks.assets).toEqual([]);
     expect(blocks.materialsHtml).toBe('');
     expect(blocks.timeHtml).toBe('');
+    expect(blocks.timeEntries).toEqual([]);
     expect(blocks.materialsTotal).toBe('');
     expect(blocks.totalTimeWorked).toBe('0 hrs');
     expect(blocks.totalTimeBillable).toBe('0 hrs');
@@ -236,6 +237,7 @@ describe('buildTicketEmailDetailBlocks', () => {
     expect(headers).toEqual(['Datum', 'Techniker', 'Gearbeitet', 'Abrechenbar']);
     const germanDate = `${String(fixtureDay.day).padStart(2, '0')}.${String(fixtureDay.month).padStart(2, '0')}.${fixtureDay.year}`;
     expect(blocks.timeHtml).toContain(germanDate);
+    expect(blocks.timeEntries[0].worked).toBe('1 Std.');
     expect(blocks.totalTimeWorked).toBe('1 Std.');
   });
 
@@ -269,15 +271,17 @@ describe('buildTicketEmailDetailBlocks', () => {
     );
   });
 
-  it('redacts internal-only tables and totals from client contexts without altering the source', () => {
+  it('redacts internal-only tables from client contexts while keeping totals', () => {
     const internal = {
       ...emptyTicketEmailDetailBlocks(),
       assetsHtml: '<table>asset</table>',
       materialsHtml: '<table>rate and billed state</table>',
       materialsTotal: '$100.00',
       timeHtml: '<table>technician</table>',
+      timeEntries: [{ date: 'd', technician: 't', worked: '2 hrs', billable: '1 hr' }],
       totalTimeWorked: '2 hrs',
       totalTimeBillable: '1 hr',
+      remainingBlockHours: '3 hrs',
     };
     const client = clientFacingDetailBlocks(internal);
     expect(client).toMatchObject({
@@ -285,29 +289,34 @@ describe('buildTicketEmailDetailBlocks', () => {
       materialsHtml: '',
       materialsTotal: '',
       timeHtml: '',
+      timeEntries: [],
       totalTimeWorked: '2 hrs',
       totalTimeBillable: '1 hr',
+      remainingBlockHours: '3 hrs',
     });
     expect(internal.timeHtml).toContain('technician');
+    expect(internal.timeEntries).toHaveLength(1);
   });
 
   it('keeps the time table but removes materials from the closed-client context', () => {
     const blocks = {
       ...emptyTicketEmailDetailBlocks(),
       timeHtml: '<table>technician and date</table>',
+      timeEntries: [{ date: 'd', technician: 't', worked: '1 hr', billable: '1 hr' }],
       materialsHtml: '<table>internal rates</table>',
       materialsTotal: '$100.00',
     };
 
     expect(closedClientDetailBlocks(blocks)).toMatchObject({
       timeHtml: '<table>technician and date</table>',
+      timeEntries: [{ date: 'd', technician: 't', worked: '1 hr', billable: '1 hr' }],
       materialsHtml: '',
       materialsTotal: '',
     });
     expect(blocks.materialsHtml).toContain('internal rates');
   });
 
-  it('sums worked vs billable minutes across time entries', async () => {
+  it('falls back to billable minutes and an Unknown technician when data is missing', async () => {
     const start = new Date(atUtc(fixtureDay, '10:00'));
     const end = new Date(atUtc(fixtureDay, '11:30'));
     runtime.timeEntries = [
@@ -316,6 +325,10 @@ describe('buildTicketEmailDetailBlocks', () => {
       { entry_id: 'e2', start_time: start, end_time: null, billable_duration: '15', technician_name: '  ' },
     ];
     const blocks = await buildTicketEmailDetailBlocks(fakeDb, tenantId, ticketId, clientId, 'UTC');
+    expect(blocks.timeEntries.map(({ technician, worked, billable }) => ({ technician, worked, billable }))).toEqual([
+      { technician: 'Unknown', worked: '0 hrs 15 min', billable: '0 hrs 15 min' },
+      { technician: 'Ada Lovelace', worked: '1 hr 30 min', billable: '1 hr 30 min' },
+    ]);
     // worked: 90 + 15 = 105; billable: 90 + 15 = 105
     expect(blocks.totalTimeWorked).toBe('1 hr 45 min');
     expect(blocks.totalTimeBillable).toBe('1 hr 45 min');
@@ -347,6 +360,28 @@ describe('buildTicketEmailDetailBlocks', () => {
       [displayDate(earlierWorkDay), 'Ada Lovelace', '1 hr', '1 hr'],
       [displayDate(laterWorkDay), 'Ada Lovelace', '3 hrs', '3 hrs'],
     ]);
+    expect(blocks.timeEntries).toEqual([
+      { date: displayDate(earlierWorkDay), technician: 'Ada Lovelace', worked: '2 hrs', billable: '2 hrs' },
+      { date: displayDate(earlierWorkDay), technician: 'Grace Hopper', worked: '2 hrs', billable: '2 hrs' },
+      { date: displayDate(earlierWorkDay), technician: 'Ada Lovelace', worked: '1 hr', billable: '1 hr' },
+      { date: displayDate(laterWorkDay), technician: 'Ada Lovelace', worked: '3 hrs', billable: '3 hrs' },
+    ]);
+  });
+
+  it('exposes plain-text time entries that Handlebars escapes for text bodies', async () => {
+    runtime.timeEntries = [
+      { entry_id: 'e1', start_time: atUtc(fixtureDay, '10:00'), end_time: atUtc(fixtureDay, '11:00'), billable_duration: 0, technician_name: 'Ada <Ops>' },
+    ];
+    const blocks = await buildTicketEmailDetailBlocks(fakeDb, tenantId, ticketId, clientId, 'UTC');
+    expect(blocks.timeEntries).toEqual([
+      { date: displayDate(fixtureDay), technician: 'Ada <Ops>', worked: '1 hr', billable: '0 hrs' },
+    ]);
+    expect(blocks.timeHtml).toContain('Ada &lt;Ops&gt;');
+    const text = Handlebars.compile(
+      '{{#each ticket.timeEntries}}{{date}} · {{technician}} · {{worked}} · {{billable}}\n{{/each}}',
+      { strict: true },
+    )({ ticket: blocks });
+    expect(text).toBe(`${displayDate(fixtureDay)} · Ada &lt;Ops&gt; · 1 hr · 0 hrs\n`);
   });
 
   it('computes worked minutes distinct from billable when entry spans differ', async () => {
@@ -360,6 +395,7 @@ describe('buildTicketEmailDetailBlocks', () => {
       },
     ];
     const blocks = await buildTicketEmailDetailBlocks(fakeDb, tenantId, ticketId, clientId, 'UTC');
+    expect(blocks.timeEntries[0]).toMatchObject({ worked: '2 hrs', billable: '0 hrs 45 min' });
     expect(blocks.totalTimeWorked).toBe('2 hrs');
     expect(blocks.totalTimeBillable).toBe('0 hrs 45 min');
   });

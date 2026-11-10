@@ -53,6 +53,11 @@ export interface TicketEmailDetailBlocks {
    * only.
    */
   timeHtml: string;
+  /**
+   * Plain-text counterpart of `timeHtml` (same rows, order and formatting) for
+   * text email bodies, which must never carry HTML. Same audience as `timeHtml`.
+   */
+  timeEntries: TicketEmailTimeEntry[];
   /** Sum of worked minutes across the ticket's time entries, formatted. */
   totalTimeWorked: string;
   /** Sum of billable_duration across the ticket's time entries, formatted. */
@@ -71,6 +76,13 @@ export interface TicketEmailAsset {
   status: string;
   location: string;
   relationship: string;
+}
+
+export interface TicketEmailTimeEntry {
+  date: string;
+  technician: string;
+  worked: string;
+  billable: string;
 }
 
 interface AssetRow {
@@ -395,20 +407,29 @@ function formatMaterialsTotal(rows: MaterialRow[], locale: string): string {
     .join(' + ');
 }
 
-function renderTimeTable(
+function formatTimeEntries(
   rows: TimeEntryRow[],
   timeZone: string,
   locale: string,
   labels: DetailLabels,
   dateFormat: CountryDateFormat,
-): string {
+): TicketEmailTimeEntry[] {
+  return sortTimeEntriesChronologically(rows).map((row) => ({
+    date: formatEntryDate(row.start_time, timeZone, locale, dateFormat) || '—',
+    technician: safeString(row.technician_name) || labels.unknown,
+    worked: formatMinutesAsHoursAndMinutes(workedMinutes(row), labels.duration),
+    billable: formatMinutesAsHoursAndMinutes(toNumberOrNull(row.billable_duration) ?? 0, labels.duration),
+  }));
+}
+
+function renderTimeTable(entries: TicketEmailTimeEntry[], labels: DetailLabels): string {
   return renderTable(
     [labels.date, labels.technician, labels.worked, labels.billable],
-    sortTimeEntriesChronologically(rows).map((row) => [
-      escapeHtml(formatEntryDate(row.start_time, timeZone, locale, dateFormat) || '—'),
-      escapeHtml(safeString(row.technician_name) || labels.unknown),
-      escapeHtml(formatMinutesAsHoursAndMinutes(workedMinutes(row), labels.duration)),
-      escapeHtml(formatMinutesAsHoursAndMinutes(toNumberOrNull(row.billable_duration) ?? 0, labels.duration)),
+    entries.map((entry) => [
+      escapeHtml(entry.date),
+      escapeHtml(entry.technician),
+      escapeHtml(entry.worked),
+      escapeHtml(entry.billable),
     ]),
   );
 }
@@ -421,6 +442,7 @@ export function emptyTicketEmailDetailBlocks(): TicketEmailDetailBlocks {
     materialsHtml: '',
     materialsTotal: '',
     timeHtml: '',
+    timeEntries: [],
     totalTimeWorked: '',
     totalTimeBillable: '',
     remainingBlockHours: '',
@@ -429,13 +451,13 @@ export function emptyTicketEmailDetailBlocks(): TicketEmailDetailBlocks {
 
 /** Strips internal-only data (technician time rows, material rates) for customer-facing emails. */
 export function clientFacingDetailBlocks(blocks: TicketEmailDetailBlocks): TicketEmailDetailBlocks {
-  return { ...blocks, timeHtml: '', materialsHtml: '', materialsTotal: '' };
+  return { ...blocks, timeHtml: '', timeEntries: [], materialsHtml: '', materialsTotal: '' };
 }
 
 /**
  * Blocks for the client copy of the Ticket Closed email. The closed summary is
  * the one customer-facing email that shows the time table (date, technician,
- * worked, billable) in place of the bare totals; material rates stay internal.
+ * worked, billable) alongside the totals; material rates stay internal.
  */
 export function closedClientDetailBlocks(blocks: TicketEmailDetailBlocks): TicketEmailDetailBlocks {
   return { ...blocks, materialsHtml: '', materialsTotal: '' };
@@ -463,18 +485,23 @@ export async function buildTicketEmailDetailBlocks(
   const resolvedLocale = normalizeLocale(locale) ?? LOCALE_CONFIG.defaultLocale;
   const labels = await loadDetailLabels(resolvedLocale);
 
-  const [assetRows, materialRows, timeRows] = await Promise.all([
+  const scopedClientId = clientId ? safeString(clientId) : '';
+  const [assetRows, materialRows, timeRows, remainingMinutes] = await Promise.all([
     fetchTicketAssets(db, tenantId, ticketId),
     fetchTicketMaterials(db, tenantId, ticketId),
     fetchTicketTimeEntries(db, tenantId, ticketId),
+    scopedClientId ? getAvailableHourBlockMinutes(db, tenantId, scopedClientId) : Promise.resolve(0),
   ]);
 
-  const totalMinutes = timeRows.reduce((sum, row) => sum + workedMinutes(row), 0);
-  const billableMinutes = timeRows.reduce((sum, row) => sum + (toNumberOrNull(row.billable_duration) ?? 0), 0);
-
-  const remainingMinutes = clientId && safeString(clientId)
-    ? await getAvailableHourBlockMinutes(db, tenantId, safeString(clientId))
-    : 0;
+  // One time-entry query feeds the totals, timeEntries and timeHtml, so a
+  // template using both the totals and the table costs no extra lookups.
+  let totalMinutes = 0;
+  let billableMinutes = 0;
+  for (const row of timeRows) {
+    totalMinutes += workedMinutes(row);
+    billableMinutes += toNumberOrNull(row.billable_duration) ?? 0;
+  }
+  const timeEntries = formatTimeEntries(timeRows, timeZone, resolvedLocale, labels, dateFormat);
 
   return {
     assets: assetRows.map((row) => ({
@@ -491,7 +518,8 @@ export async function buildTicketEmailDetailBlocks(
     assetsHtml: renderAssetsTable(assetRows, labels),
     materialsHtml: renderMaterialsTable(materialRows, resolvedLocale, labels),
     materialsTotal: formatMaterialsTotal(materialRows, resolvedLocale),
-    timeHtml: renderTimeTable(timeRows, timeZone, resolvedLocale, labels, dateFormat),
+    timeHtml: renderTimeTable(timeEntries, labels),
+    timeEntries,
     totalTimeWorked: formatMinutesAsHoursAndMinutes(totalMinutes, labels.duration),
     totalTimeBillable: formatMinutesAsHoursAndMinutes(billableMinutes, labels.duration),
     remainingBlockHours: formatMinutesAsHoursAndMinutes(remainingMinutes, labels.duration),

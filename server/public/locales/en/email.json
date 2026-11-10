@@ -13,6 +13,8 @@
     "location": "Location",
     "totalTimeWorked": "Total Time Worked",
     "totalBillableTime": "Total Billable Time",
+    "worked": "Worked",
+    "billable": "Billable",
     "remainingHours": "Remaining Hours",
     "devices": "Devices",
     "deviceName": "Name",

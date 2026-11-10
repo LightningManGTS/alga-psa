@@ -13,6 +13,8 @@
     "location": "Plats",
     "totalTimeWorked": "Total arbetad tid",
     "totalBillableTime": "Total debiterbar tid",
+    "worked": "Arbetstid",
+    "billable": "Debiterbar",
     "remainingHours": "Återstående timmar",
     "devices": "Enheter",
     "deviceName": "Namn",

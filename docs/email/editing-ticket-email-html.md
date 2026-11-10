@@ -23,8 +23,9 @@ when a copied template still references them.
 ## Quick start
 
 For the common case, add this fragment to your **Ticket Closed Internal** HTML
-template. It includes linked devices, materials/services, time totals, and the
-remaining prepaid balance without rebuilding the email layout:
+template. It includes linked devices, materials/services, the technician time
+table, time totals, and the remaining prepaid balance without rebuilding the
+email layout:
 
 ```handlebars
 {{#if ticket.assetsHtml}}
@@ -36,6 +37,10 @@ remaining prepaid balance without rebuilding the email layout:
 {{{ticket.materialsHtml}}}
 <p>Total: {{ticket.materialsTotal}}</p>
 {{/if}}
+{{#if ticket.timeHtml}}
+<h3>Time Entries</h3>
+{{{ticket.timeHtml}}}
+{{/if}}
 <p>Total Time Worked: {{ticket.totalTimeWorked}}</p>
 <p>Total Billable Time: {{ticket.totalTimeBillable}}</p>
 <p>Remaining Block Hours: {{ticket.remainingBlockHours}}</p>
@@ -43,7 +48,8 @@ remaining prepaid balance without rebuilding the email layout:
 
 Remove any section you do not want to share. For optional asset columns rather
 than the fixed device table, use the [selected-column example](#example-omit-fields-from-the-html).
-In the client template, omit materials and individual time-entry sections.
+In the client template, omit the materials section; the time table is available
+to both audiences.
 
 ## Email styles versus application themes
 
@@ -76,10 +82,10 @@ transform a delivered message.
 | `ticket.assetsHtml` | Both | Fixed HTML table: asset tag, name, serial number, status, relationship. |
 | `ticket.materialsHtml` | Internal | Fixed HTML table: material/service, quantity, rate, amount, billed state. |
 | `ticket.materialsTotal` | Internal | Formatted material/service totals, separated by currency. |
-| `ticket.timeHtml` | Internal | Fixed HTML table: technician, date, worked time, billable time. |
+| `ticket.timeHtml` | Both | Fixed HTML table in date order: date, technician, worked time, billable time. |
+| `ticket.timeEntries` | Both | Editable list of time entries; use `{{#each ticket.timeEntries}}` with `date`, `technician`, `worked`, `billable`. |
 | `ticket.totalTimeWorked` | Both | Total time recorded as worked on this ticket. |
-| `ticket.totalTimeBillable` | Both | Total recorded billable time, including time not yet invoiced. |
-| `ticket.remainingBlockHours` | Both | Client's available prepaid block hours when the email is generated. |
+| `ticket.totalTimeBillable` | Both | Total recorded billable time, including time not yet invoiced. || `ticket.remainingBlockHours` | Both | Client's available prepaid block hours when the email is generated. |
 
 Remaining block hours include usage already deducted before invoicing. They
 are a client balance, not just this ticket's usage, and may differ between the
@@ -282,6 +288,12 @@ Keep the plain-text template consistent with the HTML. Use the same loops
 without HTML tags; do not insert pre-rendered HTML blocks into plain text.
 
 ```handlebars
+{{#if ticket.timeEntries}}
+Time Entries:
+{{#each ticket.timeEntries}}
+{{date}} - {{technician}} - Worked: {{worked}} - Billable: {{billable}}
+{{/each}}
+{{/if}}
 Total Time Worked: {{ticket.totalTimeWorked}}
 Total Billable Time: {{ticket.totalTimeBillable}}
 Remaining Block Hours: {{ticket.remainingBlockHours}}

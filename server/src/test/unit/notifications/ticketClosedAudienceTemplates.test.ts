@@ -80,12 +80,32 @@ describe('ticketClosedAudience embedded copy', () => {
   it('keeps internal-only blocks out of the client template', () => {
     const client = clientModule.getClientTemplate();
     const internal = clientModule.getInternalTemplate();
-    const enClient = client.translations.find((t) => t.language === 'en');
-    const enInternal = internal.translations.find((t) => t.language === 'en');
-    expect(enClient?.htmlContent).not.toContain('{{{ticket.timeHtml}}}');
-    expect(enClient?.htmlContent).not.toContain('{{{ticket.materialsHtml}}}');
-    expect(enInternal?.htmlContent).toContain('{{{ticket.timeHtml}}}');
-    expect(enInternal?.htmlContent).toContain('{{{ticket.materialsHtml}}}');
+    for (const translation of client.translations) {
+      expect(translation.htmlContent).not.toContain('{{{ticket.materialsHtml}}}');
+      expect(translation.textContent).not.toContain('ticket.materialsTotal');
+    }
+    for (const translation of internal.translations) {
+      expect(translation.htmlContent).toContain('{{{ticket.materialsHtml}}}');
+    }
+  });
+
+  it('shows the time table alongside the time totals for both audiences', () => {
+    const client = clientModule.getClientTemplate();
+    const internal = clientModule.getInternalTemplate();
+    for (const translation of [...client.translations, ...internal.translations]) {
+      expect(translation.htmlContent).toContain('{{{ticket.timeHtml}}}');
+      expect(translation.textContent).toContain('{{#each ticket.timeEntries}}');
+      expect(translation.textContent).not.toContain('<');
+      for (const content of [translation.htmlContent, translation.textContent]) {
+        expect(content).toContain('ticket.totalTimeWorked');
+        expect(content).toContain('ticket.totalTimeBillable');
+      }
+    }
+  });
+
+  it('keeps category details in every translation', () => {
+    const client = clientModule.getClientTemplate();
+    const internal = clientModule.getInternalTemplate();
     for (const translation of [...client.translations, ...internal.translations]) {
       expect(translation.htmlContent).toContain('{{ticket.categoryDetails}}');
       expect(translation.textContent).toContain('{{ticket.categoryDetails}}');
