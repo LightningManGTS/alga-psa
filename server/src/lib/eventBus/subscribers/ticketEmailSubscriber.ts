@@ -15,8 +15,10 @@ import {
   buildTicketEmailDetailBlocks,
   closedClientDetailBlocks,
   emptyTicketEmailDetailBlocks,
+  loadDetailBlockPalette,
   type TicketEmailDetailBlocks,
 } from '../../notifications/ticketEmailDetailBlocks';
+import { STOCK_EMAIL_PALETTE, type EmailPaletteTokens } from '@alga-psa/email/branding';
 import { resolveEventEmailLocale } from '../../notifications/eventEmailLocale';
 import { resolveCoManagedCommentStep, audienceRecipients, coManagedSendFields } from '../../notifications/coManagedCommentDelivery';
 import { projectCoManagedNotificationSnapshot } from '@alga-psa/co-managed/sharedWorkProjection';
@@ -3698,14 +3700,24 @@ async function handleTicketClosed(event: TicketClosedEvent): Promise<void> {
       template: 'ticket-closed-client' | 'ticket-closed-internal';
     };
     const detailBlocksByScope = new Map<string, Promise<TicketEmailDetailBlocks>>();
+    let detailPalette: Promise<EmailPaletteTokens> | undefined;
+    const getDetailPalette = (): Promise<EmailPaletteTokens> => {
+      detailPalette ??= loadDetailBlockPalette(db, tenantId).catch((error: unknown) => {
+        logger.warn('[TicketEmailSubscriber] Failed to load email branding palette; using stock colors', {
+          error, tenantId, eventId: event.id,
+        });
+        return STOCK_EMAIL_PALETTE;
+      });
+      return detailPalette;
+    };
     const getDetailBlocks = (locale: SupportedLocale, scope: DetailScope): Promise<TicketEmailDetailBlocks> => {
       const key = JSON.stringify([scope.ticketId, scope.clientId, locale]);
       const existing = detailBlocksByScope.get(key);
       if (existing) return existing;
 
-      const blocks = buildTicketEmailDetailBlocks(
-        db, tenantId, scope.ticketId, scope.clientId, emailTimeZone, locale, emailDateFormat,
-      ).catch((error: unknown) => {
+      const blocks = getDetailPalette().then((palette) => buildTicketEmailDetailBlocks(
+        db, tenantId, scope.ticketId, scope.clientId, emailTimeZone, locale, emailDateFormat, palette,
+      )).catch((error: unknown) => {
         logger.error('[TicketEmailSubscriber] Failed to build ticket detail blocks; sending without them', {
           error, tenantId, ticketId: scope.ticketId, eventId: event.id, locale,
         });

@@ -62,10 +62,14 @@ panel that inherits the surrounding light/dark theme.
 
 Keep inline colors in the delivered email and use the existing
 [Email Branding controls](email-branding.md) / **Apply my palette** action for
-supported template palette changes. These sample colors are illustrative;
-they do not guarantee that every literal or dynamically inserted detail block
-is recolored by branding. The editable tables intentionally match the fixed
-detail renderer's styles.
+supported template palette changes. The pre-rendered detail tables
+(`ticket.assetsHtml`, `ticket.materialsHtml`, `ticket.timeHtml`) are built at
+send time from the tenant's applied palette: header text uses the palette's
+dark color, the header rule uses the card border, and row rules use the info-box
+border. Cell text stays neutral for readability. Until a palette is applied,
+the stock colors are used. Literal colors you type into your own template are
+not controlled by this; they follow the template palette rules in
+[Email branding](email-branding.md).
 
 The application's theme-token rules still apply to the editor controls and any
 native in-app components. Do not copy these email-only literal styles into
@@ -174,29 +178,29 @@ narrow email pane; use the selected-column version when fewer fields suffice.
         <table style="border-collapse:collapse;width:100%;margin:0;font-size:13px;">
           <thead>
             <tr>
-              <th style="text-align:left;padding:6px 10px;border-bottom:2px solid rgba(146,64,14,0.25);font-weight:600;color:#1f2933;white-space:nowrap;">Asset Tag</th>
-              <th style="text-align:left;padding:6px 10px;border-bottom:2px solid rgba(146,64,14,0.25);font-weight:600;color:#1f2933;white-space:nowrap;">Name</th>
-              <th style="text-align:left;padding:6px 10px;border-bottom:2px solid rgba(146,64,14,0.25);font-weight:600;color:#1f2933;white-space:nowrap;">Type</th>
-              <th style="text-align:left;padding:6px 10px;border-bottom:2px solid rgba(146,64,14,0.25);font-weight:600;color:#1f2933;white-space:nowrap;">Manufacturer</th>
-              <th style="text-align:left;padding:6px 10px;border-bottom:2px solid rgba(146,64,14,0.25);font-weight:600;color:#1f2933;white-space:nowrap;">Model</th>
-              <th style="text-align:left;padding:6px 10px;border-bottom:2px solid rgba(146,64,14,0.25);font-weight:600;color:#1f2933;white-space:nowrap;">Serial #</th>
-              <th style="text-align:left;padding:6px 10px;border-bottom:2px solid rgba(146,64,14,0.25);font-weight:600;color:#1f2933;white-space:nowrap;">Status</th>
-              <th style="text-align:left;padding:6px 10px;border-bottom:2px solid rgba(146,64,14,0.25);font-weight:600;color:#1f2933;white-space:nowrap;">Location</th>
-              <th style="text-align:left;padding:6px 10px;border-bottom:2px solid rgba(146,64,14,0.25);font-weight:600;color:#1f2933;white-space:nowrap;">Relationship</th>
+              <th style="text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#5b38b0;white-space:nowrap;">Asset Tag</th>
+              <th style="text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#5b38b0;white-space:nowrap;">Name</th>
+              <th style="text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#5b38b0;white-space:nowrap;">Type</th>
+              <th style="text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#5b38b0;white-space:nowrap;">Manufacturer</th>
+              <th style="text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#5b38b0;white-space:nowrap;">Model</th>
+              <th style="text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#5b38b0;white-space:nowrap;">Serial #</th>
+              <th style="text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#5b38b0;white-space:nowrap;">Status</th>
+              <th style="text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#5b38b0;white-space:nowrap;">Location</th>
+              <th style="text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#5b38b0;white-space:nowrap;">Relationship</th>
             </tr>
           </thead>
           <tbody>
             {{#each ticket.assets}}
             <tr>
-              <td style="padding:6px 10px;border-bottom:1px solid rgba(146,64,14,0.15);color:#1f2933;word-break:break-word;">{{assetTag}}</td>
-              <td style="padding:6px 10px;border-bottom:1px solid rgba(146,64,14,0.15);color:#1f2933;word-break:break-word;">{{name}}</td>
-              <td style="padding:6px 10px;border-bottom:1px solid rgba(146,64,14,0.15);color:#1f2933;word-break:break-word;">{{assetType}}</td>
-              <td style="padding:6px 10px;border-bottom:1px solid rgba(146,64,14,0.15);color:#1f2933;word-break:break-word;">{{manufacturer}}</td>
-              <td style="padding:6px 10px;border-bottom:1px solid rgba(146,64,14,0.15);color:#1f2933;word-break:break-word;">{{model}}</td>
-              <td style="padding:6px 10px;border-bottom:1px solid rgba(146,64,14,0.15);color:#1f2933;word-break:break-word;">{{serialNumber}}</td>
-              <td style="padding:6px 10px;border-bottom:1px solid rgba(146,64,14,0.15);color:#1f2933;word-break:break-word;">{{status}}</td>
-              <td style="padding:6px 10px;border-bottom:1px solid rgba(146,64,14,0.15);color:#1f2933;word-break:break-word;">{{location}}</td>
-              <td style="padding:6px 10px;border-bottom:1px solid rgba(146,64,14,0.15);color:#1f2933;word-break:break-word;">{{relationship}}</td>
+              <td style="padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;">{{assetTag}}</td>
+              <td style="padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;">{{name}}</td>
+              <td style="padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;">{{assetType}}</td>
+              <td style="padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;">{{manufacturer}}</td>
+              <td style="padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;">{{model}}</td>
+              <td style="padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;">{{serialNumber}}</td>
+              <td style="padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;">{{status}}</td>
+              <td style="padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;">{{location}}</td>
+              <td style="padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;">{{relationship}}</td>
             </tr>
             {{/each}}
           </tbody>
@@ -243,19 +247,19 @@ status, location, and relationship.
 <table style="border-collapse:collapse;width:100%;margin:0;font-size:13px;">
   <thead>
     <tr>
-      <th style="text-align:left;padding:6px 10px;border-bottom:2px solid rgba(146,64,14,0.25);font-weight:600;color:#1f2933;white-space:nowrap;">Name</th>
-      <th style="text-align:left;padding:6px 10px;border-bottom:2px solid rgba(146,64,14,0.25);font-weight:600;color:#1f2933;white-space:nowrap;">Type</th>
-      <th style="text-align:left;padding:6px 10px;border-bottom:2px solid rgba(146,64,14,0.25);font-weight:600;color:#1f2933;white-space:nowrap;">Manufacturer / Model</th>
-      <th style="text-align:left;padding:6px 10px;border-bottom:2px solid rgba(146,64,14,0.25);font-weight:600;color:#1f2933;white-space:nowrap;">Serial #</th>
+      <th style="text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#5b38b0;white-space:nowrap;">Name</th>
+      <th style="text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#5b38b0;white-space:nowrap;">Type</th>
+      <th style="text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#5b38b0;white-space:nowrap;">Manufacturer / Model</th>
+      <th style="text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#5b38b0;white-space:nowrap;">Serial #</th>
     </tr>
   </thead>
   <tbody>
     {{#each ticket.assets}}
     <tr>
-      <td style="padding:6px 10px;border-bottom:1px solid rgba(146,64,14,0.15);color:#1f2933;word-break:break-word;">{{name}}</td>
-      <td style="padding:6px 10px;border-bottom:1px solid rgba(146,64,14,0.15);color:#1f2933;word-break:break-word;">{{assetType}}</td>
-      <td style="padding:6px 10px;border-bottom:1px solid rgba(146,64,14,0.15);color:#1f2933;word-break:break-word;">{{manufacturer}} {{model}}</td>
-      <td style="padding:6px 10px;border-bottom:1px solid rgba(146,64,14,0.15);color:#1f2933;word-break:break-word;">{{serialNumber}}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;">{{name}}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;">{{assetType}}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;">{{manufacturer}} {{model}}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;">{{serialNumber}}</td>
     </tr>
     {{/each}}
   </tbody>
