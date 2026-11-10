@@ -22,6 +22,8 @@ import {
   type NotificationActionError,
 } from '../notificationActionErrors';
 import { LEGACY_TICKET_CLOSED_SUBTYPE, LEGACY_TICKET_CLOSED_TEMPLATE } from '../../lib/legacyEmailCatalog';
+import { readEmailBrandingPalette } from '../../lib/emailBranding';
+import { resolveEmailPalette, type EmailPaletteTokens } from '@alga-psa/email/branding';
 
 function tenantScopedTable(conn: Knex | Knex.Transaction, table: string, tenant: string) {
   return tenantDb(conn, tenant).table(table) as Knex.QueryBuilder<any, any>;
@@ -566,9 +568,18 @@ export const sendTestEmailAction = withAuth(async (
     const htmlContent = overrideContent?.html_content ?? template.html_content;
     const textContent = overrideContent?.text_content ?? template.text_content;
 
-    // 5. Get sample data and substitute variables
+    // 5. Get sample data and substitute variables. Tenant copies are colored
+    // like a real send: pre-rendered tables follow the applied branding palette,
+    // or the saved brand colors when branding has not been applied yet.
     const { getSampleDataForPreview } = await import('../../lib/templateSampleData');
-    const sampleData = getSampleDataForPreview(template.name, htmlContent, subject);
+    let tablePalette: EmailPaletteTokens | null = null;
+    if (templateType === 'tenant') {
+      const settingsRow = await tenantScopedTable(trx, 'tenant_settings', tenant).select('settings').first();
+      const settings = settingsRow?.settings && typeof settingsRow.settings === 'object' ? settingsRow.settings : {};
+      const branding = readEmailBrandingPalette(settings.emailBranding);
+      tablePalette = branding ? branding.appliedPalette ?? resolveEmailPalette(branding) : null;
+    }
+    const sampleData = getSampleDataForPreview(template.name, htmlContent, subject, tablePalette);
 
     const { StaticTemplateProcessor } = await import('@alga-psa/email');
     const renderedSubject = `[TEST] ${replaceVars(subject, sampleData)}`;

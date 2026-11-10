@@ -320,6 +320,7 @@ export function ApplyEmailBrandingDialog({
           id="preview-branding-template-frame"
           htmlContent={entry.preview.plannedHtml}
           brandLogoUrls={status.logoOptions}
+          palette={status.resolved}
           templateName={entry.preview.name}
           subject={entry.preview.subject}
         />

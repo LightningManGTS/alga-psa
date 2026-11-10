@@ -64,10 +64,13 @@ Keep inline colors in the delivered email and use the existing
 [Email Branding controls](email-branding.md) / **Apply my palette** action for
 supported template palette changes. The pre-rendered detail tables
 (`ticket.assetsHtml`, `ticket.materialsHtml`, `ticket.timeHtml`) are built at
-send time from the tenant's applied palette: header text uses the palette's
-dark color, the header rule uses the card border, and row rules use the info-box
-border. Cell text stays neutral for readability. Until a palette is applied,
-the stock colors are used. Literal colors you type into your own template are
+send time from the tenant's email branding: the palette written by the last
+**Apply Branding** run, or, if branding has not been applied yet, the saved
+brand colors with their **Adjust derived colors** overrides. Header text uses
+the palette's dark accent, the header rule uses the card border, and row rules
+use the info-box border. Cell text stays neutral for readability. With no
+saved palette, the stock colors are used. The template editor preview colors
+these tables the same way. Literal colors you type into your own template are
 not controlled by this; they follow the template palette rules in
 [Email branding](email-branding.md).
 
@@ -148,9 +151,10 @@ narrow email pane; use the selected-column version when fewer fields suffice.
 
 The header text (`#5b38b0`), header border (`#e4ddff`), and row border (`#e6deff`)
 colors in these examples are the stock fallback values. The pre-rendered
-tables resolve them from the tenant's applied palette at send time (see above).
-In a hand-written table they are literal sample values; change them to match
-your branding. Cell text (`#1f2933`) stays neutral.
+tables resolve them from the tenant's email branding at send time (see above).
+In a hand-written table they are literal sample values; **Apply Branding** and
+**Apply my palette** recolor them along with the rest of the template, or you
+can change them by hand. Cell text (`#1f2933`) stays neutral.
 
 ![All added ticket fields, rendered using registry sample values](images/ticket-details-all-fields.png)
 

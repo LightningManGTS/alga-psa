@@ -1,3 +1,8 @@
+import {
+  applyEmailPalette,
+  STOCK_EMAIL_PALETTE,
+  type EmailPaletteTokens,
+} from "@alga-psa/email/branding";
 import { getFlatTemplateExampleData } from "./templateVariables";
 
 /** Get registry-backed sample data for a system email template. */
@@ -43,13 +48,29 @@ function formatVariableAsSample(variableName: string): string {
     .join(" ");
 }
 
+/**
+ * `palette` is the token map a real send would color pre-rendered tables
+ * (`ticket.timeHtml`, `ticket.assetsHtml`, ...) with: the tenant's applied
+ * email-branding palette, or the saved one before it is applied. Registry
+ * samples are authored in the stock palette,
+ * so they are recolored to match the branded template around them.
+ */
 export function getSampleDataForPreview(
   templateName: string,
   htmlContent: string,
   subject?: string,
+  palette?: EmailPaletteTokens | null,
 ): Record<string, string> {
   const extracted = extractVariablesFromTemplate(
     `${subject ?? ""} ${htmlContent}`,
   );
-  return { ...extracted, ...getTemplateSampleData(templateName) };
+  const samples = getTemplateSampleData(templateName);
+  if (palette) {
+    for (const [path, value] of Object.entries(samples)) {
+      if (value.includes("<")) {
+        samples[path] = applyEmailPalette(value, STOCK_EMAIL_PALETTE, palette);
+      }
+    }
+  }
+  return { ...extracted, ...samples };
 }

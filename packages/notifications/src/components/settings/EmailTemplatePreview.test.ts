@@ -4,6 +4,7 @@ import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { replaceTemplateVariables } from './EmailTemplatePreview';
 import { getSampleDataForPreview } from '../../lib/templateSampleData';
+import { STOCK_EMAIL_PALETTE } from '@alga-psa/email/branding';
 import { getTemplateVariableToken } from './TemplateVariableReference';
 import { templateVariableRegistry } from '../../lib/templateVariables';
 
@@ -37,6 +38,21 @@ describe('replaceTemplateVariables #each handling', () => {
     expect(html).not.toContain('{{');
     expect(html).not.toContain('AST-0042');
     expect(replaceTemplateVariables('{{#each ticket.assets}}{{this.assetTag}}{{/each}}', data)).toBe('AST-0042');
+  });
+
+  it('recolors pre-rendered table samples into the given branding palette', () => {
+    const html = '{{{ticket.timeHtml}}}{{{ticket.assetsHtml}}}';
+    const palette = { ...STOCK_EMAIL_PALETTE, dark: '#1c183e', cardBorder: '#e5e4ea', infoBoxBorder: '#e9e9ee' };
+    const stockData = getSampleDataForPreview('ticket-closed-client', html);
+    const branded = getSampleDataForPreview('ticket-closed-client', html, undefined, palette);
+
+    expect(stockData['ticket.timeHtml']).toContain(STOCK_EMAIL_PALETTE.dark);
+    for (const path of ['ticket.timeHtml', 'ticket.assetsHtml']) {
+      expect(branded[path]).toContain('color:#1c183e');
+      expect(branded[path]).toContain('#e5e4ea');
+      expect(branded[path]).toContain('#e9e9ee');
+      expect(branded[path]).not.toContain(STOCK_EMAIL_PALETTE.dark);
+    }
   });
 
   it('renders the credit-expiring table rows from the registry examples', () => {
