@@ -66,9 +66,9 @@ supported template palette changes. The pre-rendered detail tables
 (`ticket.assetsHtml`, `ticket.materialsHtml`, `ticket.timeHtml`) are built at
 send time from the tenant's email branding: the palette written by the last
 **Apply Branding** run, or, if branding has not been applied yet, the saved
-brand colors with their **Adjust derived colors** overrides. Header text uses
-the palette's dark accent, the header rule uses the card border, and row rules
-use the info-box border. Cell text stays neutral for readability. With no
+brand colors with their **Adjust derived colors** overrides. The header rule
+uses the card border and row rules use the info-box border. Header and cell
+text stay a neutral `#1f2933`, since the palette has no text color. With no
 saved palette, the stock colors are used. The template editor preview colors
 these tables the same way. Literal colors you type into your own template are
 not controlled by this; they follow the template palette rules in
@@ -149,12 +149,11 @@ cell padding, border colors, alignment, and wrapping are identical. Only the
 selected columns differ. The full nine-column asset example may be wide in a
 narrow email pane; use the selected-column version when fewer fields suffice.
 
-The header text (`#5b38b0`), header border (`#e4ddff`), and row border (`#e6deff`)
-colors in these examples are the stock fallback values. The pre-rendered
+The header border (`#e4ddff`) and row border (`#e6deff`) colors in these examples are the stock fallback values. The pre-rendered
 tables resolve them from the tenant's email branding at send time (see above).
 In a hand-written table they are literal sample values; **Apply Branding** and
 **Apply my palette** recolor them along with the rest of the template, or you
-can change them by hand. Cell text (`#1f2933`) stays neutral.
+can change them by hand. Header and cell text (`#1f2933`) stay neutral.
 
 ![All added ticket fields, rendered using registry sample values](images/ticket-details-all-fields.png)
 
@@ -188,15 +187,15 @@ can change them by hand. Cell text (`#1f2933`) stays neutral.
         <table style="border-collapse:collapse;width:100%;margin:0;font-size:13px;">
           <thead>
             <tr>
-              <th style="text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#5b38b0;white-space:nowrap;">Asset Tag</th>
-              <th style="text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#5b38b0;white-space:nowrap;">Name</th>
-              <th style="text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#5b38b0;white-space:nowrap;">Type</th>
-              <th style="text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#5b38b0;white-space:nowrap;">Manufacturer</th>
-              <th style="text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#5b38b0;white-space:nowrap;">Model</th>
-              <th style="text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#5b38b0;white-space:nowrap;">Serial #</th>
-              <th style="text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#5b38b0;white-space:nowrap;">Status</th>
-              <th style="text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#5b38b0;white-space:nowrap;">Location</th>
-              <th style="text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#5b38b0;white-space:nowrap;">Relationship</th>
+              <th style="text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#1f2933;white-space:nowrap;">Asset Tag</th>
+              <th style="text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#1f2933;white-space:nowrap;">Name</th>
+              <th style="text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#1f2933;white-space:nowrap;">Type</th>
+              <th style="text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#1f2933;white-space:nowrap;">Manufacturer</th>
+              <th style="text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#1f2933;white-space:nowrap;">Model</th>
+              <th style="text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#1f2933;white-space:nowrap;">Serial #</th>
+              <th style="text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#1f2933;white-space:nowrap;">Status</th>
+              <th style="text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#1f2933;white-space:nowrap;">Location</th>
+              <th style="text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#1f2933;white-space:nowrap;">Relationship</th>
             </tr>
           </thead>
           <tbody>
@@ -257,10 +256,10 @@ status, location, and relationship.
 <table style="border-collapse:collapse;width:100%;margin:0;font-size:13px;">
   <thead>
     <tr>
-      <th style="text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#5b38b0;white-space:nowrap;">Name</th>
-      <th style="text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#5b38b0;white-space:nowrap;">Type</th>
-      <th style="text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#5b38b0;white-space:nowrap;">Manufacturer / Model</th>
-      <th style="text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#5b38b0;white-space:nowrap;">Serial #</th>
+      <th style="text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#1f2933;white-space:nowrap;">Name</th>
+      <th style="text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#1f2933;white-space:nowrap;">Type</th>
+      <th style="text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#1f2933;white-space:nowrap;">Manufacturer / Model</th>
+      <th style="text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#1f2933;white-space:nowrap;">Serial #</th>
     </tr>
   </thead>
   <tbody>

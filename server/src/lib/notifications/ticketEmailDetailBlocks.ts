@@ -154,7 +154,8 @@ function toNumberOrNull(value: number | string | null | undefined): number | nul
 }
 
 const DETAIL_TABLE_STYLE = 'border-collapse:collapse;width:100%;margin:0;font-size:13px;';
-// Body text is a neutral, non-palette color so it stays readable on any card.
+// Header and body text use a neutral, non-palette color so they stay readable
+// on any card; the email-branding palette has no text-color token.
 const DETAIL_TEXT_COLOR = '#1f2933';
 
 interface DetailTableStyles {
@@ -163,14 +164,14 @@ interface DetailTableStyles {
 }
 
 // Stock-palette rendering, mirrored by the variable registry examples.
-export const DETAIL_TH_STYLE = 'text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#5b38b0;white-space:nowrap;';
+export const DETAIL_TH_STYLE = 'text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#1f2933;white-space:nowrap;';
 export const DETAIL_TD_STYLE = 'padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;';
 
-// Header text and rules follow the tenant's applied email-branding palette
-// (dark, cardBorder, infoBoxBorder), matching the template chrome around them.
+// Rules follow the tenant's email-branding palette (cardBorder, infoBoxBorder),
+// matching the template chrome around them.
 export function detailTableStyles(palette: EmailPaletteTokens): DetailTableStyles {
   return {
-    th: `text-align:left;padding:6px 10px;border-bottom:2px solid ${palette.cardBorder};font-weight:600;color:${palette.dark};white-space:nowrap;`,
+    th: `text-align:left;padding:6px 10px;border-bottom:2px solid ${palette.cardBorder};font-weight:600;color:${DETAIL_TEXT_COLOR};white-space:nowrap;`,
     td: `padding:6px 10px;border-bottom:1px solid ${palette.infoBoxBorder};color:${DETAIL_TEXT_COLOR};word-break:break-word;`,
   };
 }
