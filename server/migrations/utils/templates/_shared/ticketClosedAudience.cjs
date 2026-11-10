@@ -30,6 +30,8 @@ const COPY = {
     location: "Location",
     totalTimeWorked: "Total Time Worked",
     totalBillableTime: "Total Billable Time",
+    worked: "Worked",
+    billable: "Billable",
     remainingHours: "Remaining Hours",
     devices: "Devices",
     deviceName: "Name",
@@ -56,6 +58,8 @@ const COPY = {
     location: "Emplacement",
     totalTimeWorked: "Temps total travaillé",
     totalBillableTime: "Temps total facturable",
+    worked: "Travaillé",
+    billable: "Facturable",
     remainingHours: "Heures restantes",
     devices: "Appareils",
     deviceName: "Nom",
@@ -82,6 +86,8 @@ const COPY = {
     location: "Ubicación",
     totalTimeWorked: "Tiempo total trabajado",
     totalBillableTime: "Tiempo total facturable",
+    worked: "Trabajado",
+    billable: "Facturable",
     remainingHours: "Horas restantes",
     devices: "Dispositivos",
     deviceName: "Nombre",
@@ -108,6 +114,8 @@ const COPY = {
     location: "Standort",
     totalTimeWorked: "Gesamte Arbeitszeit",
     totalBillableTime: "Gesamte abrechenbare Zeit",
+    worked: "Gearbeitet",
+    billable: "Abrechenbar",
     remainingHours: "Verbleibende Stunden",
     devices: "Geräte",
     deviceName: "Name",
@@ -134,6 +142,8 @@ const COPY = {
     location: "Locatie",
     totalTimeWorked: "Totale gewerkte tijd",
     totalBillableTime: "Totale factureerbare tijd",
+    worked: "Gewerkt",
+    billable: "Factureerbaar",
     remainingHours: "Resterende uren",
     devices: "Apparaten",
     deviceName: "Naam",
@@ -160,6 +170,8 @@ const COPY = {
     location: "Sede",
     totalTimeWorked: "Tempo totale lavorato",
     totalBillableTime: "Tempo totale fatturabile",
+    worked: "Lavorato",
+    billable: "Fatturabile",
     remainingHours: "Ore rimanenti",
     devices: "Dispositivi",
     deviceName: "Nome",
@@ -186,6 +198,8 @@ const COPY = {
     location: "Lokalizacja",
     totalTimeWorked: "Łączny czas pracy",
     totalBillableTime: "Łączny czas rozliczany",
+    worked: "Przepracowano",
+    billable: "Do rozliczenia",
     remainingHours: "Pozostałe godziny",
     devices: "Urządzenia",
     deviceName: "Nazwa",
@@ -212,6 +226,8 @@ const COPY = {
     location: "Localização",
     totalTimeWorked: "Tempo total trabalhado",
     totalBillableTime: "Tempo total faturável",
+    worked: "Trabalhado",
+    billable: "Faturável",
     remainingHours: "Horas restantes",
     devices: "Dispositivos",
     deviceName: "Nome",
@@ -238,6 +254,8 @@ const COPY = {
     location: "Plats",
     totalTimeWorked: "Total arbetad tid",
     totalBillableTime: "Total debiterbar tid",
+    worked: "Arbetstid",
+    billable: "Debiterbar",
     remainingHours: "Återstående timmar",
     devices: "Enheter",
     deviceName: "Namn",
@@ -286,10 +304,10 @@ function devicesHtml(copy) {
 }
 
 function buildHtml(copy, internal) {
-  const internalDetails = internal ? `
-  {{#if ticket.timeHtml}}
+  const timeDetails = `{{#if ticket.timeHtml}}
   <div style="margin:24px 0 0 0;"><div style="font-weight:600;color:${BRAND_DARK};margin-bottom:12px;">${copy.timeEntries}</div>{{{ticket.timeHtml}}}</div>
-  {{/if}}
+  {{/if}}`;
+  const internalDetails = internal ? `
   {{#if ticket.materialsHtml}}
   <div style="margin:24px 0 0 0;"><div style="font-weight:600;color:${BRAND_DARK};margin-bottom:12px;">${copy.materials}</div>{{{ticket.materialsHtml}}}</div>
   {{/if}}
@@ -309,6 +327,7 @@ function buildHtml(copy, internal) {
     ${optionalRow('ticket.remainingBlockHours', copy.remainingHours)}
   </table>
   ${devicesHtml(copy)}
+  ${timeDetails}
   ${internalDetails}
   <div style="margin:28px 0 16px 0;padding:18px 20px;border-radius:12px;background:${INFO_BOX_BG};border:1px solid ${INFO_BOX_BORDER};">
     <div style="font-weight:600;color:${BRAND_DARK};margin-bottom:8px;">${copy.resolution}</div>
@@ -336,7 +355,11 @@ ${copy.deviceType}: {{assetType}}
 ${copy.manufacturerModel}: {{manufacturer}} {{model}}
 ${copy.serialNumber}: {{serialNumber}}
 
-{{/each}}{{/if}}${internal ? `{{#if ticket.materialsTotal}}${copy.materialsTotal}: {{ticket.materialsTotal}}
+{{/each}}{{/if}}{{#if ticket.timeEntries}}
+${copy.timeEntries}:
+{{#each ticket.timeEntries}}{{date}} · {{technician}} · ${copy.worked}: {{worked}} · ${copy.billable}: {{billable}}
+{{/each}}
+{{/if}}${internal ? `{{#if ticket.materialsTotal}}${copy.materialsTotal}: {{ticket.materialsTotal}}
 {{/if}}` : ''}
 ${copy.resolution}:
 {{{ticket.resolution}}}`;

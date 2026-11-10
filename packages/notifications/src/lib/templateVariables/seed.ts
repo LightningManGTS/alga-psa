@@ -3028,24 +3028,59 @@ export const templateVariableSeed: TemplateVariableSeedCategory[] = [
             "availability": "available-unused"
           },
           {
-            "path": "ticket.timeHtml",
-            "type": "raw-html",
-            "description": "Ticket Closed only (client and internal emails): pre-rendered time-entry table (Technician, Date in the resolved email timezone, Worked, Billable). Empty string when none; guard with {{#if ticket.timeHtml}}.",
-            "example": "<table style=\"border-collapse:collapse;width:100%;margin:0;font-size:13px;\"><thead><tr><th style=\"text-align:left;padding:6px 10px;border-bottom:2px solid rgba(146,64,14,0.25);font-weight:600;color:#1f2933;white-space:nowrap;\">Technician</th><th style=\"text-align:left;padding:6px 10px;border-bottom:2px solid rgba(146,64,14,0.25);font-weight:600;color:#1f2933;white-space:nowrap;\">Date</th><th style=\"text-align:left;padding:6px 10px;border-bottom:2px solid rgba(146,64,14,0.25);font-weight:600;color:#1f2933;white-space:nowrap;\">Worked</th><th style=\"text-align:left;padding:6px 10px;border-bottom:2px solid rgba(146,64,14,0.25);font-weight:600;color:#1f2933;white-space:nowrap;\">Billable</th></tr></thead><tbody><tr><td style=\"padding:6px 10px;border-bottom:1px solid rgba(146,64,14,0.15);color:#1f2933;word-break:break-word;\">Jane Smith</td><td style=\"padding:6px 10px;border-bottom:1px solid rgba(146,64,14,0.15);color:#1f2933;word-break:break-word;\">Oct 30, 2026, 9:00 AM</td><td style=\"padding:6px 10px;border-bottom:1px solid rgba(146,64,14,0.15);color:#1f2933;word-break:break-word;\">3 hrs 30 min</td><td style=\"padding:6px 10px;border-bottom:1px solid rgba(146,64,14,0.15);color:#1f2933;word-break:break-word;\">2 hrs 15 min</td></tr></tbody></table>",
-            "availability": "available-unused"
-          },
-          {
             "path": "ticket.totalTimeWorked",
             "type": "string",
             "description": "Ticket Closed only (client and internal emails): total time worked across all ticket time entries (end-start interval), formatted like '3 hrs 30 min'.",
             "example": "3 hrs 30 min",
-            "availability": "available-unused"
+            "availability": "used"
           },
           {
             "path": "ticket.totalTimeBillable",
             "type": "string",
             "description": "Ticket Closed only (client and internal emails): total recorded billable time, including time not yet invoiced (0 for non-billable entries), formatted like '2 hrs 15 min'.",
             "example": "2 hrs 15 min",
+            "availability": "used"
+          },
+          {
+            "path": "ticket.timeHtml",
+            "type": "raw-html",
+            "description": "Ticket Closed only (client and internal emails): localized time-entry table (Date, Technician, Worked, Billable), oldest first by entry date so back-dated and multi-technician entries read as a timeline. Dates use the tenant email locale/date format. Empty string when none; guard with {{#if ticket.timeHtml}}.",
+            "example": "<table style=\"border-collapse:collapse;width:100%;margin:0;font-size:13px;\"><thead><tr><th style=\"text-align:left;padding:6px 10px;border-bottom:2px solid rgba(146,64,14,0.25);font-weight:600;color:#1f2933;white-space:nowrap;\">Date</th><th style=\"text-align:left;padding:6px 10px;border-bottom:2px solid rgba(146,64,14,0.25);font-weight:600;color:#1f2933;white-space:nowrap;\">Technician</th><th style=\"text-align:left;padding:6px 10px;border-bottom:2px solid rgba(146,64,14,0.25);font-weight:600;color:#1f2933;white-space:nowrap;\">Worked</th><th style=\"text-align:left;padding:6px 10px;border-bottom:2px solid rgba(146,64,14,0.25);font-weight:600;color:#1f2933;white-space:nowrap;\">Billable</th></tr></thead><tbody><tr><td style=\"padding:6px 10px;border-bottom:1px solid rgba(146,64,14,0.15);color:#1f2933;word-break:break-word;\">10/30/2026</td><td style=\"padding:6px 10px;border-bottom:1px solid rgba(146,64,14,0.15);color:#1f2933;word-break:break-word;\">Jane Smith</td><td style=\"padding:6px 10px;border-bottom:1px solid rgba(146,64,14,0.15);color:#1f2933;word-break:break-word;\">2 hrs</td><td style=\"padding:6px 10px;border-bottom:1px solid rgba(146,64,14,0.15);color:#1f2933;word-break:break-word;\">2 hrs</td></tr><tr><td style=\"padding:6px 10px;border-bottom:1px solid rgba(146,64,14,0.15);color:#1f2933;word-break:break-word;\">11/02/2026</td><td style=\"padding:6px 10px;border-bottom:1px solid rgba(146,64,14,0.15);color:#1f2933;word-break:break-word;\">Jane Smith</td><td style=\"padding:6px 10px;border-bottom:1px solid rgba(146,64,14,0.15);color:#1f2933;word-break:break-word;\">3 hrs</td><td style=\"padding:6px 10px;border-bottom:1px solid rgba(146,64,14,0.15);color:#1f2933;word-break:break-word;\">0 min</td></tr></tbody></table>",
+            "availability": "available-unused"
+          },
+          {
+            "path": "ticket.timeEntries",
+            "type": "array",
+            "description": "Ticket Closed only (client and internal emails): plain-text rows behind ticket.timeHtml, same order and formatting. Use {{#each ticket.timeEntries}} in text bodies.",
+            "example": "[{\"date\":\"10/30/2026\",\"technician\":\"Jane Smith\",\"worked\":\"2 hrs\",\"billable\":\"2 hrs\"}]",
+            "availability": "available-unused"
+          },
+          {
+            "path": "ticket.timeEntries[].date",
+            "type": "string",
+            "description": "Entry date in the tenant email locale/date format. Use {{date}} inside {{#each ticket.timeEntries}}.",
+            "example": "10/30/2026",
+            "availability": "available-unused"
+          },
+          {
+            "path": "ticket.timeEntries[].technician",
+            "type": "string",
+            "description": "Technician who logged the entry. Use {{technician}} inside {{#each ticket.timeEntries}}.",
+            "example": "Jane Smith",
+            "availability": "available-unused"
+          },
+          {
+            "path": "ticket.timeEntries[].worked",
+            "type": "string",
+            "description": "Time worked for the entry, formatted like '2 hrs'. Use {{worked}} inside {{#each ticket.timeEntries}}.",
+            "example": "2 hrs",
+            "availability": "available-unused"
+          },
+          {
+            "path": "ticket.timeEntries[].billable",
+            "type": "string",
+            "description": "Billable time for the entry (0 min when non-billable). Use {{billable}} inside {{#each ticket.timeEntries}}.",
+            "example": "2 hrs",
             "availability": "available-unused"
           },
           {
@@ -3328,6 +3363,48 @@ export const templateVariableSeed: TemplateVariableSeedCategory[] = [
             "availability": "used"
           },
           {
+            "path": "ticket.timeHtml",
+            "type": "raw-html",
+            "description": "Ticket Closed only (client and internal emails): localized time-entry table (Date, Technician, Worked, Billable), oldest first by entry date so back-dated and multi-technician entries read as a timeline. Dates use the tenant email locale/date format. Empty string when none; guard with {{#if ticket.timeHtml}}.",
+            "example": "<table style=\"border-collapse:collapse;width:100%;margin:0;font-size:13px;\"><thead><tr><th style=\"text-align:left;padding:6px 10px;border-bottom:2px solid rgba(146,64,14,0.25);font-weight:600;color:#1f2933;white-space:nowrap;\">Date</th><th style=\"text-align:left;padding:6px 10px;border-bottom:2px solid rgba(146,64,14,0.25);font-weight:600;color:#1f2933;white-space:nowrap;\">Technician</th><th style=\"text-align:left;padding:6px 10px;border-bottom:2px solid rgba(146,64,14,0.25);font-weight:600;color:#1f2933;white-space:nowrap;\">Worked</th><th style=\"text-align:left;padding:6px 10px;border-bottom:2px solid rgba(146,64,14,0.25);font-weight:600;color:#1f2933;white-space:nowrap;\">Billable</th></tr></thead><tbody><tr><td style=\"padding:6px 10px;border-bottom:1px solid rgba(146,64,14,0.15);color:#1f2933;word-break:break-word;\">10/30/2026</td><td style=\"padding:6px 10px;border-bottom:1px solid rgba(146,64,14,0.15);color:#1f2933;word-break:break-word;\">Jane Smith</td><td style=\"padding:6px 10px;border-bottom:1px solid rgba(146,64,14,0.15);color:#1f2933;word-break:break-word;\">2 hrs</td><td style=\"padding:6px 10px;border-bottom:1px solid rgba(146,64,14,0.15);color:#1f2933;word-break:break-word;\">2 hrs</td></tr><tr><td style=\"padding:6px 10px;border-bottom:1px solid rgba(146,64,14,0.15);color:#1f2933;word-break:break-word;\">11/02/2026</td><td style=\"padding:6px 10px;border-bottom:1px solid rgba(146,64,14,0.15);color:#1f2933;word-break:break-word;\">Jane Smith</td><td style=\"padding:6px 10px;border-bottom:1px solid rgba(146,64,14,0.15);color:#1f2933;word-break:break-word;\">3 hrs</td><td style=\"padding:6px 10px;border-bottom:1px solid rgba(146,64,14,0.15);color:#1f2933;word-break:break-word;\">0 min</td></tr></tbody></table>",
+            "availability": "used"
+          },
+          {
+            "path": "ticket.timeEntries",
+            "type": "array",
+            "description": "Ticket Closed only (client and internal emails): plain-text rows behind ticket.timeHtml, same order and formatting. Use {{#each ticket.timeEntries}} in text bodies.",
+            "example": "[{\"date\":\"10/30/2026\",\"technician\":\"Jane Smith\",\"worked\":\"2 hrs\",\"billable\":\"2 hrs\"}]",
+            "availability": "used"
+          },
+          {
+            "path": "ticket.timeEntries[].date",
+            "type": "string",
+            "description": "Entry date in the tenant email locale/date format. Use {{date}} inside {{#each ticket.timeEntries}}.",
+            "example": "10/30/2026",
+            "availability": "used"
+          },
+          {
+            "path": "ticket.timeEntries[].technician",
+            "type": "string",
+            "description": "Technician who logged the entry. Use {{technician}} inside {{#each ticket.timeEntries}}.",
+            "example": "Jane Smith",
+            "availability": "used"
+          },
+          {
+            "path": "ticket.timeEntries[].worked",
+            "type": "string",
+            "description": "Time worked for the entry, formatted like '2 hrs'. Use {{worked}} inside {{#each ticket.timeEntries}}.",
+            "example": "2 hrs",
+            "availability": "used"
+          },
+          {
+            "path": "ticket.timeEntries[].billable",
+            "type": "string",
+            "description": "Billable time for the entry (0 min when non-billable). Use {{billable}} inside {{#each ticket.timeEntries}}.",
+            "example": "2 hrs",
+            "availability": "used"
+          },
+          {
             "path": "ticket.remainingBlockHours",
             "type": "string",
             "description": "Ticket Closed only (client and internal emails): client's remaining prepaid hour-block balance at send time (active, non-expired blocks; already-allocated even time deducted), formatted like '12 hrs 45 min'. '0 hrs' when the client has no blocks.",
@@ -3607,13 +3684,6 @@ export const templateVariableSeed: TemplateVariableSeedCategory[] = [
             "availability": "used"
           },
           {
-            "path": "ticket.timeHtml",
-            "type": "raw-html",
-            "description": "Ticket Closed internal only: pre-rendered time-entry table (Technician, Date in the resolved email timezone, Worked, Billable). Empty string when none; guard with {{#if ticket.timeHtml}}.",
-            "example": "<table style=\"border-collapse:collapse;width:100%;margin:0;font-size:13px;\"><thead><tr><th style=\"text-align:left;padding:6px 10px;border-bottom:2px solid rgba(146,64,14,0.25);font-weight:600;color:#1f2933;white-space:nowrap;\">Technician</th><th style=\"text-align:left;padding:6px 10px;border-bottom:2px solid rgba(146,64,14,0.25);font-weight:600;color:#1f2933;white-space:nowrap;\">Date</th><th style=\"text-align:left;padding:6px 10px;border-bottom:2px solid rgba(146,64,14,0.25);font-weight:600;color:#1f2933;white-space:nowrap;\">Worked</th><th style=\"text-align:left;padding:6px 10px;border-bottom:2px solid rgba(146,64,14,0.25);font-weight:600;color:#1f2933;white-space:nowrap;\">Billable</th></tr></thead><tbody><tr><td style=\"padding:6px 10px;border-bottom:1px solid rgba(146,64,14,0.15);color:#1f2933;word-break:break-word;\">Jane Smith</td><td style=\"padding:6px 10px;border-bottom:1px solid rgba(146,64,14,0.15);color:#1f2933;word-break:break-word;\">Oct 30, 2026, 9:00 AM</td><td style=\"padding:6px 10px;border-bottom:1px solid rgba(146,64,14,0.15);color:#1f2933;word-break:break-word;\">3 hrs 30 min</td><td style=\"padding:6px 10px;border-bottom:1px solid rgba(146,64,14,0.15);color:#1f2933;word-break:break-word;\">2 hrs 15 min</td></tr></tbody></table>",
-            "availability": "used"
-          },
-          {
             "path": "ticket.totalTimeWorked",
             "type": "string",
             "description": "Ticket Closed only (client and internal emails): total time worked across all ticket time entries (end-start interval), formatted like '3 hrs 30 min'.",
@@ -3625,6 +3695,48 @@ export const templateVariableSeed: TemplateVariableSeedCategory[] = [
             "type": "string",
             "description": "Ticket Closed only (client and internal emails): total recorded billable time, including time not yet invoiced (0 for non-billable entries), formatted like '2 hrs 15 min'.",
             "example": "2 hrs 15 min",
+            "availability": "used"
+          },
+          {
+            "path": "ticket.timeHtml",
+            "type": "raw-html",
+            "description": "Ticket Closed only (client and internal emails): localized time-entry table (Date, Technician, Worked, Billable), oldest first by entry date so back-dated and multi-technician entries read as a timeline. Dates use the tenant email locale/date format. Empty string when none; guard with {{#if ticket.timeHtml}}.",
+            "example": "<table style=\"border-collapse:collapse;width:100%;margin:0;font-size:13px;\"><thead><tr><th style=\"text-align:left;padding:6px 10px;border-bottom:2px solid rgba(146,64,14,0.25);font-weight:600;color:#1f2933;white-space:nowrap;\">Date</th><th style=\"text-align:left;padding:6px 10px;border-bottom:2px solid rgba(146,64,14,0.25);font-weight:600;color:#1f2933;white-space:nowrap;\">Technician</th><th style=\"text-align:left;padding:6px 10px;border-bottom:2px solid rgba(146,64,14,0.25);font-weight:600;color:#1f2933;white-space:nowrap;\">Worked</th><th style=\"text-align:left;padding:6px 10px;border-bottom:2px solid rgba(146,64,14,0.25);font-weight:600;color:#1f2933;white-space:nowrap;\">Billable</th></tr></thead><tbody><tr><td style=\"padding:6px 10px;border-bottom:1px solid rgba(146,64,14,0.15);color:#1f2933;word-break:break-word;\">10/30/2026</td><td style=\"padding:6px 10px;border-bottom:1px solid rgba(146,64,14,0.15);color:#1f2933;word-break:break-word;\">Jane Smith</td><td style=\"padding:6px 10px;border-bottom:1px solid rgba(146,64,14,0.15);color:#1f2933;word-break:break-word;\">2 hrs</td><td style=\"padding:6px 10px;border-bottom:1px solid rgba(146,64,14,0.15);color:#1f2933;word-break:break-word;\">2 hrs</td></tr><tr><td style=\"padding:6px 10px;border-bottom:1px solid rgba(146,64,14,0.15);color:#1f2933;word-break:break-word;\">11/02/2026</td><td style=\"padding:6px 10px;border-bottom:1px solid rgba(146,64,14,0.15);color:#1f2933;word-break:break-word;\">Jane Smith</td><td style=\"padding:6px 10px;border-bottom:1px solid rgba(146,64,14,0.15);color:#1f2933;word-break:break-word;\">3 hrs</td><td style=\"padding:6px 10px;border-bottom:1px solid rgba(146,64,14,0.15);color:#1f2933;word-break:break-word;\">0 min</td></tr></tbody></table>",
+            "availability": "used"
+          },
+          {
+            "path": "ticket.timeEntries",
+            "type": "array",
+            "description": "Ticket Closed only (client and internal emails): plain-text rows behind ticket.timeHtml, same order and formatting. Use {{#each ticket.timeEntries}} in text bodies.",
+            "example": "[{\"date\":\"10/30/2026\",\"technician\":\"Jane Smith\",\"worked\":\"2 hrs\",\"billable\":\"2 hrs\"}]",
+            "availability": "used"
+          },
+          {
+            "path": "ticket.timeEntries[].date",
+            "type": "string",
+            "description": "Entry date in the tenant email locale/date format. Use {{date}} inside {{#each ticket.timeEntries}}.",
+            "example": "10/30/2026",
+            "availability": "used"
+          },
+          {
+            "path": "ticket.timeEntries[].technician",
+            "type": "string",
+            "description": "Technician who logged the entry. Use {{technician}} inside {{#each ticket.timeEntries}}.",
+            "example": "Jane Smith",
+            "availability": "used"
+          },
+          {
+            "path": "ticket.timeEntries[].worked",
+            "type": "string",
+            "description": "Time worked for the entry, formatted like '2 hrs'. Use {{worked}} inside {{#each ticket.timeEntries}}.",
+            "example": "2 hrs",
+            "availability": "used"
+          },
+          {
+            "path": "ticket.timeEntries[].billable",
+            "type": "string",
+            "description": "Billable time for the entry (0 min when non-billable). Use {{billable}} inside {{#each ticket.timeEntries}}.",
+            "example": "2 hrs",
             "availability": "used"
           },
           {

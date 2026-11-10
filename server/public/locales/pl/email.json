@@ -13,6 +13,8 @@
     "location": "Lokalizacja",
     "totalTimeWorked": "Łączny czas pracy",
     "totalBillableTime": "Łączny czas rozliczany",
+    "worked": "Przepracowano",
+    "billable": "Do rozliczenia",
     "remainingHours": "Pozostałe godziny",
     "devices": "Urządzenia",
     "deviceName": "Nazwa",

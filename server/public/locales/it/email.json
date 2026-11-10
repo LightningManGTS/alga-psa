@@ -13,6 +13,8 @@
     "location": "Sede",
     "totalTimeWorked": "Tempo totale lavorato",
     "totalBillableTime": "Tempo totale fatturabile",
+    "worked": "Lavorato",
+    "billable": "Fatturabile",
     "remainingHours": "Ore rimanenti",
     "devices": "Dispositivi",
     "deviceName": "Nome",
