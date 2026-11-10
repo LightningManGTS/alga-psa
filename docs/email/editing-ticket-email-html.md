@@ -146,6 +146,12 @@ cell padding, border colors, alignment, and wrapping are identical. Only the
 selected columns differ. The full nine-column asset example may be wide in a
 narrow email pane; use the selected-column version when fewer fields suffice.
 
+The header text (`#5b38b0`), header border (`#e4ddff`), and row border (`#e6deff`)
+colors in these examples are the stock fallback values. The pre-rendered
+tables resolve them from the tenant's applied palette at send time (see above).
+In a hand-written table they are literal sample values; change them to match
+your branding. Cell text (`#1f2933`) stays neutral.
+
 ![All added ticket fields, rendered using registry sample values](images/ticket-details-all-fields.png)
 
 ```html
