@@ -138,6 +138,33 @@ describe('resolveDetailBlockPalette', () => {
     expect(palette.gradient).toBe(STOCK_EMAIL_PALETTE.gradient);
     expect(palette.badgeBg).toBe('rgba(1, 2, 3, 0.5)');
   });
+
+  it('derives tokens from the saved brand colors and overrides when nothing has been applied', () => {
+    const palette = resolveDetailBlockPalette({
+      emailBranding: {
+        primary: '#252053',
+        secondary: '#37a862',
+        overrides: { dark: '#1C183E', cardBorder: '#e5e4ea', infoBoxBorder: '#e9e9ee', outerBg: 'nope' },
+      },
+    });
+    expect(palette.primary).toBe('#252053');
+    expect(palette.dark).toBe('#1c183e');
+    expect(palette.cardBorder).toBe('#e5e4ea');
+    expect(palette.infoBoxBorder).toBe('#e9e9ee');
+    expect(palette.outerBg).not.toBe(STOCK_EMAIL_PALETTE.outerBg);
+    expect(detailTableStyles(palette).th).toContain('color:#1c183e');
+  });
+
+  it('prefers the applied palette over the saved colors', () => {
+    const palette = resolveDetailBlockPalette({
+      emailBranding: { primary: '#252053', appliedPalette: { dark: '#0a3d62' } },
+    });
+    expect(palette.dark).toBe('#0a3d62');
+  });
+
+  it('ignores a saved palette without a valid primary', () => {
+    expect(resolveDetailBlockPalette({ emailBranding: { primary: 'red' } })).toBe(STOCK_EMAIL_PALETTE);
+  });
 });
 
 describe('loadDetailBlockPalette', () => {

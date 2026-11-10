@@ -3,7 +3,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Label } from "@alga-psa/ui/components/Label";
 import { useTranslation } from "@alga-psa/ui/lib/i18n/client";
-import { resolveBrandLogoForPreview, type BrandLogoPreviewUrls } from "@alga-psa/email/branding";
+import {
+  resolveBrandLogoForPreview,
+  type BrandLogoPreviewUrls,
+  type EmailPaletteTokens,
+} from "@alga-psa/email/branding";
 import { getSampleDataForPreview } from "../../lib/templateSampleData";
 import {
   annotateHtmlSource,
@@ -72,6 +76,7 @@ export function EmailTemplatePreview({
   subject,
   id,
   brandLogoUrls,
+  palette,
   sourceMap,
   highlightOffset,
   onSelectSource,
@@ -86,6 +91,11 @@ export function EmailTemplatePreview({
    * loads the URL instead.
    */
   brandLogoUrls?: BrandLogoPreviewUrls;
+  /**
+   * Palette the send would color pre-rendered tables with (`ticket.timeHtml`,
+   * `ticket.assetsHtml`, ...). Omit for the stock palette.
+   */
+  palette?: EmailPaletteTokens | null;
   /** Links what is rendered back to the HTML source, for the side-by-side editor. */
   sourceMap?: boolean;
   /** Caret offset in the source; the element around it is outlined. */
@@ -100,8 +110,8 @@ export function EmailTemplatePreview({
   selectSourceRef.current = onSelectSource;
 
   const sampleData = useMemo(
-    () => getSampleDataForPreview(templateName, htmlContent, subject),
-    [templateName, htmlContent, subject]
+    () => getSampleDataForPreview(templateName, htmlContent, subject, palette),
+    [templateName, htmlContent, subject, palette]
   );
 
   // The URLs, not the object: callers pass the status field straight through,
