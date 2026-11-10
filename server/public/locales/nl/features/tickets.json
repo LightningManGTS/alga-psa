@@ -3320,6 +3320,13 @@
   "statusChange": {
     "title": "Ticketstatus bijwerken",
     "message": "Weet u zeker dat u de status wilt wijzigen van \"{{from}}\" naar \"{{to}}\"?"
+  },
+  "catalogFilter": {
+    "category": "Categorie",
+    "allCategories": "Alle categorieën",
+    "loading": "Categorieën laden...",
+    "loadError": "Categorieën konden niet worden geladen. Probeer het opnieuw.",
+    "retry": "Opnieuw proberen"
   }
 }
 

@@ -3320,6 +3320,13 @@
   "statusChange": {
     "title": "Actualizar estado del ticket",
     "message": "¿Seguro que quiere cambiar el estado de \"{{from}}\" a \"{{to}}\"?"
+  },
+  "catalogFilter": {
+    "category": "Categoría",
+    "allCategories": "Todas las categorías",
+    "loading": "Cargando categorías...",
+    "loadError": "No se pudieron cargar las categorías. Inténtelo de nuevo.",
+    "retry": "Reintentar"
   }
 }
 

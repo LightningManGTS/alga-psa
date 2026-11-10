@@ -3174,6 +3174,13 @@
   "statusChange": {
     "title": "Ticketstatus aktualisieren",
     "message": "Möchten Sie den Status wirklich von „{{from}}“ auf „{{to}}“ ändern?"
+  },
+  "catalogFilter": {
+    "category": "Kategorie",
+    "allCategories": "Alle Kategorien",
+    "loading": "Kategorien werden geladen...",
+    "loadError": "Kategorien konnten nicht geladen werden. Bitte erneut versuchen.",
+    "retry": "Erneut versuchen"
   }
 }
 

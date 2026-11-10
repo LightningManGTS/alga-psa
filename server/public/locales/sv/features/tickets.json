@@ -3174,6 +3174,13 @@
   "statusChange": {
     "title": "Uppdatera ärendestatus",
     "message": "Vill du ändra status från ”{{from}}” till ”{{to}}”?"
+  },
+  "catalogFilter": {
+    "category": "Kategori",
+    "allCategories": "Alla kategorier",
+    "loading": "Laddar kategorier...",
+    "loadError": "Det gick inte att ladda kategorier. Försök igen.",
+    "retry": "Försök igen"
   }
 }
 

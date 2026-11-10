@@ -3334,6 +3334,13 @@
   "statusChange": {
     "title": "Zaktualizuj status zgłoszenia",
     "message": "Czy na pewno chcesz zmienić status z „{{from}}” na „{{to}}”?"
+  },
+  "catalogFilter": {
+    "category": "Kategoria",
+    "allCategories": "Wszystkie kategorie",
+    "loading": "Ładowanie kategorii...",
+    "loadError": "Nie można wczytać kategorii. Spróbuj ponownie.",
+    "retry": "Spróbuj ponownie"
   }
 }
 
