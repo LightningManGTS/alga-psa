@@ -3,6 +3,7 @@ const {
   BADGE_BG,
   BRAND_DARK,
   BRAND_PRIMARY,
+  CARD_BORDER,
   INFO_BOX_BG,
   INFO_BOX_BORDER,
   SUPPORTED_LANGUAGES,
@@ -290,8 +291,8 @@ function optionalRow(path, label) {
 }
 
 function devicesHtml(copy) {
-  const header = (text) => `<th scope="col" style="text-align:left;padding:6px 10px;border-bottom:2px solid rgba(146,64,14,0.25);font-weight:600;color:#1f2933;">${text}</th>`;
-  const cell = (value) => `<td style="padding:6px 10px;border-bottom:1px solid rgba(146,64,14,0.15);color:#1f2933;word-break:break-word;">${value}</td>`;
+  const header = (text) => `<th scope="col" style="text-align:left;padding:6px 10px;border-bottom:2px solid ${CARD_BORDER};font-weight:600;color:${BRAND_DARK};">${text}</th>`;
+  const cell = (value) => `<td style="padding:6px 10px;border-bottom:1px solid ${INFO_BOX_BORDER};color:#1f2933;word-break:break-word;">${value}</td>`;
   return `{{#if ticket.assets}}
   <div style="margin:24px 0 0 0;">
     <div style="font-weight:600;color:${BRAND_DARK};margin-bottom:12px;">${copy.devices}</div>

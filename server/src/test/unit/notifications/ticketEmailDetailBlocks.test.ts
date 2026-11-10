@@ -17,6 +17,7 @@ const runtime = vi.hoisted(() => ({
   materials: [] as Array<Record<string, any>>,
   timeEntries: [] as Array<Record<string, any>>,
   availableBlockMinutes: 0 as number,
+  tenantSettings: undefined as Record<string, any> | undefined,
 }));
 
 vi.mock('@alga-psa/db', () => ({
@@ -34,6 +35,7 @@ vi.mock('@alga-psa/db', () => ({
         if (table === 'asset_associations as aa') return Object.assign(query, { then: (res: any) => Promise.resolve(runtime.assets).then(res) });
         if (table === 'ticket_materials as tm') return Object.assign(query, { then: (res: any) => Promise.resolve(runtime.materials).then(res) });
         if (table === 'time_entries as te') return Object.assign(query, { then: (res: any) => Promise.resolve(runtime.timeEntries).then(res) });
+        if (table === 'tenant_settings') return Object.assign(query, { first: async () => runtime.tenantSettings });
         throw new Error(`Unexpected table in ticketEmailDetailBlocks test: ${table}`);
       },
     };
@@ -53,10 +55,16 @@ import {
   buildTicketEmailDetailBlocks,
   clientFacingDetailBlocks,
   closedClientDetailBlocks,
+  DETAIL_TD_STYLE,
+  DETAIL_TH_STYLE,
+  detailTableStyles,
   emptyTicketEmailDetailBlocks,
   escapeHtml,
   formatCentsAmount,
+  loadDetailBlockPalette,
+  resolveDetailBlockPalette,
 } from '../../../lib/notifications/ticketEmailDetailBlocks';
+import { STOCK_EMAIL_PALETTE } from '@alga-psa/email/branding';
 import { getAvailableHourBlockMinutes } from '@alga-psa/shared/billingClients/hourBlockService';
 import logger from '@alga-psa/core/logger';
 
@@ -99,6 +107,52 @@ describe('formatCentsAmount', () => {
 
   it('logs and formats unsupported currency codes as plain numbers', () => {
     expect(formatCentsAmount(1250, 'TOOLONG')).toBe('12.50');
+  });
+});
+
+describe('detailTableStyles', () => {
+  it('renders the documented stock styles for the stock palette', () => {
+    expect(detailTableStyles(STOCK_EMAIL_PALETTE)).toEqual({ th: DETAIL_TH_STYLE, td: DETAIL_TD_STYLE });
+  });
+});
+
+describe('resolveDetailBlockPalette', () => {
+  it('returns the stock palette when no palette has been applied', () => {
+    expect(resolveDetailBlockPalette(undefined)).toBe(STOCK_EMAIL_PALETTE);
+    expect(resolveDetailBlockPalette({ emailBranding: {} })).toBe(STOCK_EMAIL_PALETTE);
+  });
+
+  it('uses applied hex tokens and keeps stock values for invalid ones', () => {
+    const palette = resolveDetailBlockPalette({
+      emailBranding: { appliedPalette: { dark: '#0A3D62', cardBorder: 'not-a-color', infoBoxBorder: '#cce' } },
+    });
+    expect(palette.dark).toBe('#0a3d62');
+    expect(palette.cardBorder).toBe(STOCK_EMAIL_PALETTE.cardBorder);
+    expect(palette.infoBoxBorder).not.toBe(STOCK_EMAIL_PALETTE.infoBoxBorder);
+  });
+
+  it('rejects CSS tokens that could break out of a style attribute', () => {
+    const palette = resolveDetailBlockPalette({
+      emailBranding: { appliedPalette: { gradient: 'red;" onload="x', badgeBg: 'rgba(1, 2, 3, 0.5)' } },
+    });
+    expect(palette.gradient).toBe(STOCK_EMAIL_PALETTE.gradient);
+    expect(palette.badgeBg).toBe('rgba(1, 2, 3, 0.5)');
+  });
+});
+
+describe('loadDetailBlockPalette', () => {
+  beforeEach(() => {
+    runtime.tenantSettings = undefined;
+  });
+
+  it('falls back to stock when the tenant has no settings row', async () => {
+    await expect(loadDetailBlockPalette(fakeDb, tenantId)).resolves.toBe(STOCK_EMAIL_PALETTE);
+  });
+
+  it('reads the applied palette from tenant settings', async () => {
+    runtime.tenantSettings = { settings: { emailBranding: { appliedPalette: { dark: '#123456' } } } };
+    const palette = await loadDetailBlockPalette(fakeDb, tenantId);
+    expect(palette.dark).toBe('#123456');
   });
 });
 
@@ -156,6 +210,26 @@ describe('buildTicketEmailDetailBlocks', () => {
     expect(blocks.assetsHtml).toContain('Related');
     // Null fields render as em-dash placeholders.
     expect(blocks.assetsHtml).toContain('—');
+  });
+
+  it('styles table headers and rules with the stock palette by default', async () => {
+    runtime.assets = [{ asset_tag: 'AST-001', name: 'Laptop', serial_number: null, status: null, relationship_type: 'affected' }];
+    const blocks = await buildTicketEmailDetailBlocks(fakeDb, tenantId, ticketId, clientId, 'UTC');
+    expect(blocks.assetsHtml).toContain(`border-bottom:2px solid ${STOCK_EMAIL_PALETTE.cardBorder}`);
+    expect(blocks.assetsHtml).toContain(`color:${STOCK_EMAIL_PALETTE.dark}`);
+    expect(blocks.assetsHtml).toContain(`border-bottom:1px solid ${STOCK_EMAIL_PALETTE.infoBoxBorder}`);
+  });
+
+  it('styles table headers and rules with the applied branding palette', async () => {
+    runtime.assets = [{ asset_tag: 'AST-001', name: 'Laptop', serial_number: null, status: null, relationship_type: 'affected' }];
+    const palette = { ...STOCK_EMAIL_PALETTE, dark: '#0a3d62', cardBorder: '#b3d4fc', infoBoxBorder: '#d6e9ff' };
+    const blocks = await buildTicketEmailDetailBlocks(
+      fakeDb, tenantId, ticketId, clientId, 'UTC', undefined, undefined, palette,
+    );
+    expect(blocks.assetsHtml).toContain('border-bottom:2px solid #b3d4fc');
+    expect(blocks.assetsHtml).toContain('color:#0a3d62');
+    expect(blocks.assetsHtml).toContain('border-bottom:1px solid #d6e9ff');
+    expect(blocks.assetsHtml).not.toContain(STOCK_EMAIL_PALETTE.dark);
   });
 
   it('exposes selectable asset fields without pre-escaping them', async () => {
