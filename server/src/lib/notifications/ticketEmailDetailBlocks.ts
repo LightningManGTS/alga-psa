@@ -44,6 +44,8 @@ import {
   STOCK_EMAIL_PALETTE,
   isHexColor,
   normalizeHex,
+  resolveEmailPalette,
+  type EmailPaletteOverrides,
   type EmailPaletteTokens,
 } from '@alga-psa/email/branding';
 
@@ -191,14 +193,47 @@ function isSafeCssValue(value: unknown): value is string {
   return typeof value === 'string' && value.trim() !== '' && !/[<>"';{}]/.test(value);
 }
 
+// Only the color fields of a saved override map; anything else is dropped.
+function readSavedOverrides(raw: unknown): EmailPaletteOverrides | undefined {
+  if (!raw || typeof raw !== 'object') {
+    return undefined;
+  }
+  const source = raw as Record<string, unknown>;
+  const overrides: EmailPaletteOverrides = {};
+  for (const token of ['dark', 'outerBg', 'footerBg', 'cardBorder', 'infoBoxBg', 'infoBoxBorder'] as const) {
+    const value = source[token];
+    if (isHexColor(value)) {
+      overrides[token] = normalizeHex(value) ?? undefined;
+    }
+  }
+  if (typeof source.badgeAlpha === 'number' && source.badgeAlpha >= 0 && source.badgeAlpha <= 1) {
+    overrides.badgeAlpha = source.badgeAlpha;
+  }
+  return overrides;
+}
+
 /**
- * Resolve the palette for the pre-rendered tables from `tenant_settings.settings`.
- * Uses `emailBranding.appliedPalette` (set once a palette has been applied to
- * the templates); invalid or missing tokens fall back to the stock palette.
+ * Resolve the palette for the pre-rendered tables from `tenant_settings.settings`,
+ * the same way the template editor picks its branding target:
+ * `emailBranding.appliedPalette` (what the last apply wrote into the templates)
+ * when present, otherwise the saved brand colors and derived-color overrides
+ * run through `resolveEmailPalette`. Invalid or missing tokens fall back to the
+ * stock palette.
  */
 export function resolveDetailBlockPalette(settings: unknown): EmailPaletteTokens {
-  const applied = (settings as { emailBranding?: { appliedPalette?: unknown } } | null | undefined)
-    ?.emailBranding?.appliedPalette;
+  const branding = (settings as { emailBranding?: Record<string, unknown> | null } | null | undefined)
+    ?.emailBranding;
+  if (!branding || typeof branding !== 'object') {
+    return STOCK_EMAIL_PALETTE;
+  }
+  let applied: unknown = branding.appliedPalette;
+  if ((!applied || typeof applied !== 'object') && isHexColor(branding.primary)) {
+    applied = resolveEmailPalette({
+      primary: branding.primary,
+      secondary: isHexColor(branding.secondary) ? branding.secondary : null,
+      overrides: readSavedOverrides(branding.overrides),
+    });
+  }
   if (!applied || typeof applied !== 'object') {
     return STOCK_EMAIL_PALETTE;
   }
