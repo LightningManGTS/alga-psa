@@ -1682,6 +1682,8 @@
       "tooMany": "Du kan skriva ut högst {{max}} etiketter åt gången.",
       "unnamedAsset": "Namnlös tillgång",
       "useTemplate": "Använd {{template}}",
+      "copiesPerAsset": "Exemplar per tillgång",
+      "adjacentCopies": "Exemplaren för varje tillgång skrivs ut tillsammans.",
       "paperMismatchWarning": "Den här mallen är utformad för {{template}}-papper, men den valda layouten skriver ut på {{layout}}. Välj „Mallpapper“ eller matchande layout för hela ark, annars får innehållet inte plats.",
       "worksheetPageSizeError": "Arbetsbladet matchar inte den valda utskriftslayouten. Använd „Mallpapper“ eller en layout med samma papper som mallen.",
       "worksheetTextOverflowError": "Blad {{numbers}} innehåller text som inte får plats. Justera layouten eller förkorta innehållet före utskrift."

@@ -1692,6 +1692,8 @@
       "tooMany": "Jednorazowo można wydrukować co najwyżej {{max}} etykiet.",
       "unnamedAsset": "Zasób bez nazwy",
       "useTemplate": "Użyj szablonu {{template}}",
+      "copiesPerAsset": "Kopie na zasób",
+      "adjacentCopies": "Kopie każdego zasobu są drukowane razem.",
       "paperMismatchWarning": "Ten szablon jest zaprojektowany dla papieru {{template}}, ale wybrany układ drukuje na {{layout}}. Wybierz „Papier szablonu” lub pasujący układ pełnostronicowy, inaczej treść się nie zmieści.",
       "worksheetPageSizeError": "Karta pracy nie pasuje do wybranego układu wydruku. Użyj „Papier szablonu” lub układu z tym samym papierem co szablon.",
       "worksheetTextOverflowError": "Karta {{numbers}} zawiera tekst, który się nie mieści. Przed drukowaniem zmień układ lub skróć treść."

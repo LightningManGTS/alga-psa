@@ -1682,6 +1682,8 @@
       "tooMany": "U kunt maximaal {{max}} labels tegelijk afdrukken.",
       "unnamedAsset": "Naamloze asset",
       "useTemplate": "{{template}} gebruiken",
+      "copiesPerAsset": "Exemplaren per asset",
+      "adjacentCopies": "De exemplaren van elke asset worden samen afgedrukt.",
       "paperMismatchWarning": "Deze sjabloon is ontworpen voor {{template}}-papier, maar de geselecteerde indeling print op {{layout}}. Kies „Sjabloonpapier“ of de passende indeling voor volle vellen, anders past de inhoud niet.",
       "worksheetPageSizeError": "Het werkvel past niet bij de geselecteerde printindeling. Gebruik „Sjabloonpapier“ of een indeling met hetzelfde papier als de sjabloon.",
       "worksheetTextOverflowError": "Werkblad {{numbers}} bevat tekst die niet past. Pas de indeling aan of verkort de inhoud voordat u afdrukt."

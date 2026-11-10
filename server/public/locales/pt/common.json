@@ -1682,6 +1682,8 @@
       "tooMany": "Você pode imprimir no máximo {{max}} etiquetas por vez.",
       "unnamedAsset": "Recurso sem nome",
       "useTemplate": "Usar {{template}}",
+      "copiesPerAsset": "Cópias por ativo",
+      "adjacentCopies": "As cópias de cada ativo são impressas juntas.",
       "paperMismatchWarning": "Este modelo foi projetado para papel {{template}}, mas o layout selecionado imprime em {{layout}}. Escolha „Papel do modelo“ ou o layout de página inteira correspondente, ou o conteúdo não caberá.",
       "worksheetPageSizeError": "A folha de trabalho não corresponde ao layout de impressão selecionado. Use „Papel do modelo“ ou um layout com o mesmo papel do modelo.",
       "worksheetTextOverflowError": "A folha {{numbers}} contém texto que não cabe. Ajuste a disposição ou encurte o conteúdo antes de imprimir."

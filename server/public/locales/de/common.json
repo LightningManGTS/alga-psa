@@ -1682,6 +1682,8 @@
       "tooMany": "Sie können höchstens {{max}} Etiketten auf einmal drucken.",
       "unnamedAsset": "Unbenanntes Asset",
       "useTemplate": "{{template}} verwenden",
+      "copiesPerAsset": "Exemplare pro Asset",
+      "adjacentCopies": "Die Exemplare jedes Assets werden zusammen gedruckt.",
       "paperMismatchWarning": "Dieses Vorlagenformat ist für {{template}} ausgelegt, aber das gewählte Layout druckt auf {{layout}}. Wählen Sie „Vorlagenpapier“ oder das passende Layout für volle Bögen, sonst passt der Inhalt nicht.",
       "worksheetPageSizeError": "Das Arbeitsblatt passt nicht zum gewählten Drucklayout. Verwenden Sie „Vorlagenpapier“ oder ein Layout mit demselben Papier wie die Vorlage.",
       "worksheetTextOverflowError": "Arbeitsblatt {{numbers}} enthält Text, der nicht hineinpasst. Passen Sie das Layout an oder kürzen Sie den Inhalt vor dem Drucken."

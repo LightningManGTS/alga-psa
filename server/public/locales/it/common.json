@@ -1682,6 +1682,8 @@
       "tooMany": "Puoi stampare al massimo {{max}} etichette alla volta.",
       "unnamedAsset": "Asset senza nome",
       "useTemplate": "Usa {{template}}",
+      "copiesPerAsset": "Copie per asset",
+      "adjacentCopies": "Le copie di ciascun asset vengono stampate insieme.",
       "paperMismatchWarning": "Questo modello è progettato per carta {{template}}, ma il layout selezionato stampa su {{layout}}. Scegli „Carta del modello“ o il layout a foglio intero corrispondente, altrimenti il contenuto non starà.",
       "worksheetPageSizeError": "Il foglio di lavoro non corrisponde al layout di stampa selezionato. Usa „Carta del modello“ o un layout con la stessa carta del modello.",
       "worksheetTextOverflowError": "Il foglio {{numbers}} contiene testo che non entra. Modifica il layout o riduci il contenuto prima di stampare."
