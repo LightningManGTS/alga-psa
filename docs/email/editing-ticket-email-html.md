@@ -85,7 +85,8 @@ transform a delivered message.
 | `ticket.timeHtml` | Both | Fixed HTML table in date order: date, technician, worked time, billable time. |
 | `ticket.timeEntries` | Both | Editable list of time entries; use `{{#each ticket.timeEntries}}` with `date`, `technician`, `worked`, `billable`. |
 | `ticket.totalTimeWorked` | Both | Total time recorded as worked on this ticket. |
-| `ticket.totalTimeBillable` | Both | Total recorded billable time, including time not yet invoiced. || `ticket.remainingBlockHours` | Both | Client's available prepaid block hours when the email is generated. |
+| `ticket.totalTimeBillable` | Both | Total recorded billable time, including time not yet invoiced. |
+| `ticket.remainingBlockHours` | Both | Client's available prepaid block hours when the email is generated. |
 
 Remaining block hours include usage already deducted before invoicing. They
 are a client balance, not just this ticket's usage, and may differ between the
