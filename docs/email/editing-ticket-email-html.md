@@ -1,337 +1,72 @@
-# Editing ticket email HTML
+# Ticket-closed detail variables (1/3)
 
-Open **Settings > Notifications > Email Templates**, customize the
-**Ticket Closed Client** or **Ticket Closed Internal** template, and edit its
-HTML and plain-text versions independently.
-The **Variables** panel lists the variables available to that particular
-template. Its examples and the preview use sample data, not a customer's ticket.
-Save only after checking both versions and sending a test email.
+The existing `ticket-closed` notification exposes plain-data arrays for custom
+templates. Stock templates, notification routing and existing translations are
+unchanged. These variables are not added to other ticket notifications.
 
-The fields below apply to `ticket-closed-client` and `ticket-closed-internal`;
-they are not automatically available in other ticket notification types.
-The stock templates include the combined category and subcategory value
-`ticket.categoryDetails`, for example `Hardware / Printer`.
+| Variable | Contents |
+|---|---|
+| `ticket.assets` | `assetTag`, `name`, `assetType`, `manufacturer`, `model`, `serialNumber`, `status`, `location`, `relationship` |
+| `ticket.materials` | `name`, `description`, `quantity`, `rate`, `amount`, `currencyCode`, `billed` |
+| `ticket.timeEntries` | `date`, `technician`, `worked`, `billable` |
+| `ticket.materialsTotal` | Currency-formatted material totals; different currencies are listed separately, not added together |
+| `ticket.totalTimeWorked` | All recorded worked time |
+| `ticket.totalTimeBillable` | Recorded billable time, including uninvoiced time |
+| `ticket.remainingBlockHours` | Available, unexpired prepaid hours at send time |
 
-When upgrading, existing tenant-specific `ticket-closed` templates, notification
-settings, and user preferences are copied to both audiences without
-overwriting existing audience-specific choices. Review both copies and edit
-them independently. The legacy template and notification history are retained,
-but the shared template no longer sends closed-ticket notifications.
-Client messages receive empty values for the internal-only detail blocks even
-when a copied template still references them.
+Empty arrays are `[]`; missing asset fields are empty strings. Material quantities
+are numbers and `billed` is a boolean. Material rates and amounts use each row's
+currency. Durations use the existing hours/minutes formatter. Time-entry dates
+use `MM/DD/YYYY` in the email's existing effective timezone; rows are ordered by
+work timestamp, technician and entry ID. Multiple entries for the same technician
+remain separate. No translation lookup or HTML rendering is performed.
 
-## Quick start
+## Editable time table
 
-For the common case, add this fragment to your **Ticket Closed Internal** HTML
-template. It includes linked devices, materials/services, the technician time
-table, time totals, and the remaining prepaid balance without rebuilding the
-email layout:
+This replaces a pre-rendered time table with the same four columns. All table
+markup, labels and styling belong to the custom template; remove a header and
+its matching cell to omit a column. Use ordinary double braces to escape values.
 
 ```handlebars
-{{#if ticket.assetsHtml}}
-<h3>Devices</h3>
-{{{ticket.assetsHtml}}}
-{{/if}}
-{{#if ticket.materialsHtml}}
-<h3>Materials and Services</h3>
-{{{ticket.materialsHtml}}}
-<p>Total: {{ticket.materialsTotal}}</p>
-{{/if}}
-{{#if ticket.timeHtml}}
-<h3>Time Entries</h3>
-{{{ticket.timeHtml}}}
-{{/if}}
-<p>Total Time Worked: {{ticket.totalTimeWorked}}</p>
-<p>Total Billable Time: {{ticket.totalTimeBillable}}</p>
-<p>Remaining Block Hours: {{ticket.remainingBlockHours}}</p>
-```
-
-Remove any section you do not want to share. For optional asset columns rather
-than the fixed device table, use the [selected-column example](#example-omit-fields-from-the-html).
-In the client template, omit the materials section; the time table is available
-to both audiences.
-
-## Email styles versus application themes
-
-The examples are standalone **outgoing email HTML**, not application UI
-components. Their inline, literal color values are intentional: recipients'
-mail clients do not load AlgaPSA's stylesheets or define its theme CSS variables,
-and CSS custom-property support varies between email clients. The editor
-preview renders that email document inside an iframe; it is not an application
-panel that inherits the surrounding light/dark theme.
-
-Keep inline colors in the delivered email and use the existing
-[Email Branding controls](email-branding.md) / **Apply my palette** action for
-supported template palette changes. The pre-rendered detail tables
-(`ticket.assetsHtml`, `ticket.materialsHtml`, `ticket.timeHtml`) are built at
-send time from the tenant's email branding: the palette written by the last
-**Apply Branding** run, or, if branding has not been applied yet, the saved
-brand colors with their **Adjust derived colors** overrides. The header rule
-uses the card border and row rules use the info-box border. Header and cell
-text stay a neutral `#1f2933`, since the palette has no text color. With no
-saved palette, the stock colors are used. The template editor preview colors
-these tables the same way. Literal colors you type into your own template are
-not controlled by this; they follow the template palette rules in
-[Email branding](email-branding.md).
-
-The application's theme-token rules still apply to the editor controls and any
-native in-app components. Do not copy these email-only literal styles into
-product UI panels. Email-client dark-mode behavior must be checked separately;
-an application theme switch does not establish how Outlook or Gmail will
-transform a delivered message.
-
-## Fields added for ticket details
-
-| Variable | Audience | Content |
-| --- | --- | --- |
-| `ticket.categoryDetails` | Both | Category and subcategory combined with a slash. |
-| `ticket.assets` | Both | Editable list of linked assets; use `{{#each ticket.assets}}`. |
-| `ticket.assetsHtml` | Both | Fixed HTML table: asset tag, name, serial number, status, relationship. |
-| `ticket.materialsHtml` | Internal | Fixed HTML table: material/service, quantity, rate, amount, billed state. |
-| `ticket.materialsTotal` | Internal | Formatted material/service totals, separated by currency. |
-| `ticket.timeHtml` | Both | Fixed HTML table in date order: date, technician, worked time, billable time. |
-| `ticket.timeEntries` | Both | Editable list of time entries; use `{{#each ticket.timeEntries}}` with `date`, `technician`, `worked`, `billable`. |
-| `ticket.totalTimeWorked` | Both | Total time recorded as worked on this ticket. |
-| `ticket.totalTimeBillable` | Both | Total recorded billable time, including time not yet invoiced. |
-| `ticket.remainingBlockHours` | Both | Client's available prepaid block hours when the email is generated. |
-
-Remaining block hours include usage already deducted before invoicing. They
-are a client balance, not just this ticket's usage, and may differ between the
-preview sample and an actual send. A ticket without a client reports `0 hrs`.
-Table labels, quantities, durations, and money follow the recipient's resolved
-email locale. Dates also use the configured date format and resolved timezone.
-When the currency code is missing or unsupported, an unlabelled localized amount
-is shown instead of assuming USD. A message's To recipient determines its
-language, including for any Cc/Bcc recipients.
-
-The client template includes the aggregate worked and billable totals to match
-the existing template. Comparing them can reveal aggregate non-billable time;
-remove one or both fields if that should not be shared.
-
-### Editable asset fields
-
-Inside `{{#each ticket.assets}}`, use any of the following. All fields are
-optional **in your markup**: omit the field to omit it from the email.
-
-| Field | Example | Meaning |
-| --- | --- | --- |
-| `{{assetTag}}` | AST-0042 | Asset tag; you can omit it independently of the name. |
-| `{{name}}` | Office Printer | Asset name. |
-| `{{assetType}}` | Printer | Tenant's type display name, or stored slug if no registry entry exists. |
-| `{{manufacturer}}` | Brother | Manufacturer. |
-| `{{model}}` | HL-L6200DW | Model. |
-| `{{serialNumber}}` | SN-0042 | Serial number. |
-| `{{status}}` | active | Stored asset status. |
-| `{{location}}` | Main Office | Asset location. |
-| `{{relationship}}` | Affected | Affected or Related ticket relationship. |
-
-Missing asset values are empty strings. No linked assets means an empty list.
-The Variables panel inserts `{{ticket.assets}}`, not table markup. Copy the
-[editable loop example](#example-omit-fields-from-the-html) or customize the
-loop already present in the stock template.
-Individual field insertions use `{{this.name}}`, for example; insert those
-**inside** the loop. `{{name}}` and `{{this.name}}` are equivalent there.
-
-Use **double braces** for individual values so user-entered content is escaped.
-Use **triple braces** only for the pre-rendered blocks, such as
-`{{{ticket.materialsHtml}}}`. Triple braces around an array do not produce a
-customizable asset table.
-
-## Complete example: all added fields
-
-This internal-audience example shows all nine editable asset fields, the fixed asset table
-alternative, material/service details and total, time entries, worked and
-billable totals, and remaining block hours. Showing both asset layouts is for
-documentation only; normally choose one.
-
-All detail tables below use the fixed renderer's exact inline styles: font,
-cell padding, border colors, alignment, and wrapping are identical. Only the
-selected columns differ. The full nine-column asset example may be wide in a
-narrow email pane; use the selected-column version when fewer fields suffice.
-
-The header border (`#e4ddff`) and row border (`#e6deff`) colors in these examples are the stock fallback values. The pre-rendered
-tables resolve them from the tenant's email branding at send time (see above).
-In a hand-written table they are literal sample values; **Apply Branding** and
-**Apply my palette** recolor them along with the rest of the template, or you
-can change them by hand. Header and cell text (`#1f2933`) stay neutral.
-
-![All added ticket fields, rendered using registry sample values](images/ticket-details-all-fields.png)
-
-```html
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Ticket closed</title>
-</head>
-<body style="margin:0;padding:24px;background:#f4f4f6;font-family:Arial,sans-serif;color:#1f2933;">
-  <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;max-width:680px;margin:0 auto;background:#ffffff;border:1px solid #e5e4ea;border-radius:12px;">
-    <tr>
-      <td style="padding:24px;background:#252053;color:#ffffff;">
-        <div style="font-size:12px;text-transform:uppercase;">Ticket Closed</div>
-        <h1 style="margin:8px 0;font-size:22px;">{{ticket.title}}</h1>
-        <div>{{ticket.metaLine}}</div>
-      </td>
-    </tr>
-    <tr>
-      <td style="padding:24px;">
-        <p>Ticket #{{ticket.id}} for <strong>{{ticket.clientName}}</strong> is closed.</p>
-        <h2 style="font-size:18px;">Time and prepaid balance</h2>
-        <p>Total Time Worked: <strong>{{ticket.totalTimeWorked}}</strong></p>
-        <p>Total Billable Time: <strong>{{ticket.totalTimeBillable}}</strong></p>
-        <p>Remaining Block Hours: <strong>{{ticket.remainingBlockHours}}</strong></p>
-
-        {{#if ticket.assets}}
-        <h2 style="font-size:18px;">Devices: editable fields</h2>
-        <table style="border-collapse:collapse;width:100%;margin:0;font-size:13px;">
-          <thead>
-            <tr>
-              <th style="text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#1f2933;white-space:nowrap;">Asset Tag</th>
-              <th style="text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#1f2933;white-space:nowrap;">Name</th>
-              <th style="text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#1f2933;white-space:nowrap;">Type</th>
-              <th style="text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#1f2933;white-space:nowrap;">Manufacturer</th>
-              <th style="text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#1f2933;white-space:nowrap;">Model</th>
-              <th style="text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#1f2933;white-space:nowrap;">Serial #</th>
-              <th style="text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#1f2933;white-space:nowrap;">Status</th>
-              <th style="text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#1f2933;white-space:nowrap;">Location</th>
-              <th style="text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#1f2933;white-space:nowrap;">Relationship</th>
-            </tr>
-          </thead>
-          <tbody>
-            {{#each ticket.assets}}
-            <tr>
-              <td style="padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;">{{assetTag}}</td>
-              <td style="padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;">{{name}}</td>
-              <td style="padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;">{{assetType}}</td>
-              <td style="padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;">{{manufacturer}}</td>
-              <td style="padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;">{{model}}</td>
-              <td style="padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;">{{serialNumber}}</td>
-              <td style="padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;">{{status}}</td>
-              <td style="padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;">{{location}}</td>
-              <td style="padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;">{{relationship}}</td>
-            </tr>
-            {{/each}}
-          </tbody>
-        </table>
-        {{/if}}
-
-        {{#if ticket.assetsHtml}}
-        <h2 style="font-size:18px;">Devices: fixed-table alternative</h2>
-        {{{ticket.assetsHtml}}}
-        {{/if}}
-
-        {{#if ticket.materialsHtml}}
-        <h2 style="font-size:18px;">Materials and Services</h2>
-        {{{ticket.materialsHtml}}}
-        <p>Total Materials and Services: <strong>{{ticket.materialsTotal}}</strong></p>
-        {{/if}}
-
-        {{#if ticket.timeHtml}}
-        <h2 style="font-size:18px;">Time Entries</h2>
-        {{{ticket.timeHtml}}}
-        {{/if}}
-
-        <h2 style="font-size:18px;">Resolution</h2>
-        <div style="padding:12px;background:#f6f6f8;">{{{ticket.resolution}}}</div>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>
-```
-
-## Example: omit fields from the HTML
-
-For a shorter device section, replace the editable asset section above with
-this block, and remove the fixed-table alternative. This keeps name, type,
-manufacturer/model, and serial number; it deliberately omits asset tag,
-status, location, and relationship.
-
-![Devices with the asset tag and other optional fields omitted](images/ticket-details-selected-asset-fields.png)
-
-```html
-{{#if ticket.assets}}
-<h2 style="font-size:18px;">Devices</h2>
-<table style="border-collapse:collapse;width:100%;margin:0;font-size:13px;">
+{{#if ticket.timeEntries}}
+<table style="border-collapse:collapse;width:100%;font-size:13px;">
   <thead>
     <tr>
-      <th style="text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#1f2933;white-space:nowrap;">Name</th>
-      <th style="text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#1f2933;white-space:nowrap;">Type</th>
-      <th style="text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#1f2933;white-space:nowrap;">Manufacturer / Model</th>
-      <th style="text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#1f2933;white-space:nowrap;">Serial #</th>
+      <th style="text-align:left;padding:6px 10px;">Date</th>
+      <th style="text-align:left;padding:6px 10px;">Technician</th>
+      <th style="text-align:left;padding:6px 10px;">Worked</th>
+      <th style="text-align:left;padding:6px 10px;">Billable</th>
     </tr>
   </thead>
   <tbody>
-    {{#each ticket.assets}}
+    {{#each ticket.timeEntries}}
     <tr>
-      <td style="padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;">{{name}}</td>
-      <td style="padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;">{{assetType}}</td>
-      <td style="padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;">{{manufacturer}} {{model}}</td>
-      <td style="padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;">{{serialNumber}}</td>
+      <td style="padding:6px 10px;">{{date}}</td>
+      <td style="padding:6px 10px;">{{technician}}</td>
+      <td style="padding:6px 10px;">{{worked}}</td>
+      <td style="padding:6px 10px;">{{billable}}</td>
     </tr>
     {{/each}}
   </tbody>
 </table>
 {{/if}}
+<p>Worked: {{ticket.totalTimeWorked}} · Billable: {{ticket.totalTimeBillable}}</p>
+<p>Remaining Block Hours: {{ticket.remainingBlockHours}}</p>
 ```
 
-To restore the tag, add an `Asset Tag` header cell and a corresponding
-`<td>{{assetTag}}</td>` inside the row loop, using the same padding and border
-styles as the other cells. To omit any column, remove both the column's `<th>`
-and corresponding `<td>`; removing just the value leaves an
-empty column. You cannot customize columns inside `ticket.assetsHtml` from
-the template: use `ticket.assets` instead.
-
-To omit an entire section, remove its heading, block, and wrapper. For example,
-remove the complete `{{#if ticket.timeHtml}}...{{/if}}` section to hide
-individual time entries while retaining the time totals. Likewise, remove
-the Remaining Block Hours paragraph if that balance should not be shared.
-Do not merely remove a variable while leaving its label behind.
-
-Keep the same number of cells in every row. Do not conditionally remove a
-single `<td>` when its value is missing: leave it empty or put a conditional
-inside it, such as `<td>{{#if serialNumber}}{{serialNumber}}{{else}}Not recorded{{/if}}</td>`.
-`{{#if ticket.assets}}` hides the section for an empty asset list.
-The preview displays registry examples, not real-time account balances; verify
-empty-data cases and actual delivery with a test ticket.
-
-## Plain-text version
-
-Keep the plain-text template consistent with the HTML. Use the same loops
-without HTML tags; do not insert pre-rendered HTML blocks into plain text.
+For plain-text content, use the same array without HTML:
 
 ```handlebars
-{{#if ticket.timeEntries}}
-Time Entries:
 {{#each ticket.timeEntries}}
-{{date}} - {{technician}} - Worked: {{worked}} - Billable: {{billable}}
-{{/each}}
-{{/if}}
-Total Time Worked: {{ticket.totalTimeWorked}}
-Total Billable Time: {{ticket.totalTimeBillable}}
-Remaining Block Hours: {{ticket.remainingBlockHours}}
+Date: {{date}}
+Technician: {{technician}}
+Worked: {{worked}}
+Billable: {{billable}}
 
-{{#if ticket.assets}}
-Devices:
-{{#each ticket.assets}}
-{{name}} - {{assetType}}
-{{manufacturer}} {{model}}
-{{#if serialNumber}}Serial Number: {{serialNumber}}{{/if}}
 {{/each}}
-{{/if}}
-
-Materials and Services Total (internal only): {{ticket.materialsTotal}}
 ```
 
-Only assets have individually selectable row fields in this addition.
-`ticket.materialsHtml` and `ticket.timeHtml` remain pre-rendered tables;
-include or omit each whole block, rather than trying to edit its inner columns.
-For resolution content in plain text, preserve the existing template's
-plain-text handling rather than inserting an HTML fragment.
-
-## Related documentation
-
-- [Email branding](email-branding.md)
-- [Email settings access](email_settings_access.md)
-- [Variable registry design and dated additions](../plans/2026-07-17-email-template-variables-plan.md)
+Use the same `{{#each ticket.assets}}` or `{{#each ticket.materials}}` pattern
+for those arrays. There are no `assetsHtml`, `materialsHtml` or `timeHtml`
+variables. Existing personal templates using those experimental variables must
+replace them with array loops before using the narrowed implementation.

@@ -1158,7 +1158,6 @@ function EditTemplateDialog({
                       id="edit-template-preview"
                       htmlContent={previewHtml}
                       brandLogoUrls={brandLogoUrls}
-                      palette={brandingPalette}
                       templateName={template?.name ?? ''}
                       subject={previewSubject}
                       sourceMap

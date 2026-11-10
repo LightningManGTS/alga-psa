@@ -219,6 +219,6 @@ describe('image scheme hardening (T007)', () => {
     expect(html).toContain('<strong>Hello world</strong>');
     expect(html).toContain('<ul>');
     expect(html).toContain('<ol>');
-    expect(html).toMatch(/<td\b[^>]*>Cell<\/td>/);
+    expect(html).toContain('<td>Cell</td>');
   });
 });

@@ -10,8 +10,8 @@ import { TenantEmailService } from '@alga-psa/email';
 import { StaticTemplateProcessor } from '@alga-psa/email';
 import { EmailProviderError } from '@alga-psa/types';
 import type { OutboundMailClass } from '@alga-psa/types';
-import { resolveEventEmailLocale } from './eventEmailLocale';
-import type { SupportedLocale } from '@alga-psa/core/i18n/config';
+import { getUserInfoForEmail, resolveEmailLocale } from '@alga-psa/notifications/notifications/emailLocaleResolver';
+import { SupportedLocale } from '@alga-psa/core/i18n/config';
 import Handlebars from 'handlebars';
 import { EmailAddress, EmailAttachment } from '../../types/email.types';
 import { normalizeTicketSubject } from './ticketSubject';
@@ -166,7 +166,6 @@ function projectSponsorEmailContext(context: Record<string, unknown>, redactions
     priority: ticket.priority, priorityColor: ticket.priorityColor, status: ticket.status,
     board: ticket.board, categoryDetails: ticket.categoryDetails, category: ticket.category, subcategory: ticket.subcategory,
     ticketUrl: ticket.url, description: ticket.description,
-    descriptionHtml: ticket.descriptionHtml, descriptionText: ticket.descriptionText,
     metaLine: ticket.metaLine, authorName: comment.author, commentContent: comment.content,
     commentHtml: comment.html, commentPreview: comment.text, commentRawContent: comment.rawContent,
   });
@@ -178,8 +177,7 @@ function projectSponsorEmailContext(context: Record<string, unknown>, redactions
     clientName: projected.clientName, locationSummary: projected.locationSummary, priority: projected.priority,
     priorityColor: projected.priorityColor, status: projected.status, board: projected.board,
     categoryDetails: projected.categoryDetails, category: projected.category, subcategory: projected.subcategory,
-    description: projected.description, descriptionHtml: projected.descriptionHtml, descriptionText: projected.descriptionText,
-    metaLine: projected.metaLine };
+    description: projected.description, metaLine: projected.metaLine };
   const safeComment = projected.conversationSuppressed
     ? { content: '', html: '', text: '', plainText: '', rawContent: null, author: 'A team member' }
     : { content: projected.commentContent, html: projected.commentHtml, text: projected.commentPreview,
@@ -309,13 +307,31 @@ export async function sendEventEmail(params: SendEmailParams): Promise<void> {
     });
 
     // Resolve recipient locale for language-aware email templates
-    const recipientLocale = await resolveEventEmailLocale(params);
-    logger.debug('[SendEventEmail] Resolved recipient locale:', {
-      locale: recipientLocale,
-      email: params.to,
-      userId: params.recipientUserId,
-      clientId: params.recipientClientId,
-    });
+    let recipientLocale: SupportedLocale;
+    if (params.locale) {
+      recipientLocale = params.locale;
+      logger.debug('[SendEventEmail] Using explicitly provided locale:', { locale: recipientLocale });
+    } else {
+      // Get recipient information for locale resolution
+      const baseInfo = params.recipientUserId
+        ? { email: params.to, userId: params.recipientUserId }
+        : await getUserInfoForEmail(params.tenantId, params.to) || { email: params.to };
+
+      // Merge in clientId if provided (for contacts without user accounts yet)
+      const recipientInfo = {
+        ...baseInfo,
+        ...(params.recipientClientId && { clientId: params.recipientClientId })
+      };
+
+      recipientLocale = await resolveEmailLocale(params.tenantId, recipientInfo);
+      logger.debug('[SendEventEmail] Resolved recipient locale:', {
+        locale: recipientLocale,
+        email: params.to,
+        userId: recipientInfo.userId,
+        userType: recipientInfo.userType,
+        clientId: recipientInfo.clientId
+      });
+    }
 
     // Get the template content using tenant-aware connection
     const knex = await getConnection(params.tenantId);

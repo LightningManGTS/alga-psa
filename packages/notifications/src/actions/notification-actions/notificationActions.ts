@@ -21,9 +21,6 @@ import {
   notificationActionErrorFrom,
   type NotificationActionError,
 } from '../notificationActionErrors';
-import { LEGACY_TICKET_CLOSED_SUBTYPE, LEGACY_TICKET_CLOSED_TEMPLATE } from '../../lib/legacyEmailCatalog';
-import { readEmailBrandingPalette } from '../../lib/emailBranding';
-import { resolveEmailPalette, type EmailPaletteTokens } from '@alga-psa/email/branding';
 
 function tenantScopedTable(conn: Knex | Knex.Transaction, table: string, tenant: string) {
   return tenantDb(conn, tenant).table(table) as Knex.QueryBuilder<any, any>;
@@ -140,12 +137,9 @@ export const getTemplatesAction = withAuth(async (
       );
     systemTemplatesQuery = db.tenantJoin(systemTemplatesQuery, "notification_subtypes as s", "t.notification_subtype_id", "s.id");
     systemTemplatesQuery = db.tenantJoin(systemTemplatesQuery, "notification_categories as c", "s.category_id", "c.id");
-    const systemTemplates = await systemTemplatesQuery
-      .whereNot("t.name", LEGACY_TICKET_CLOSED_TEMPLATE)
-      .orderBy(["c.name", "t.name"]);
+    const systemTemplates = await systemTemplatesQuery.orderBy(["c.name", "t.name"]);
       
     const tenantTemplates = await tenantScopedTable(trx, "tenant_email_templates", tenant)
-      .whereNot("name", LEGACY_TICKET_CLOSED_TEMPLATE)
       .orderBy("name");
       
     return { systemTemplates, tenantTemplates };
@@ -323,7 +317,6 @@ export const getCategoryWithSubtypesAction = withAuth(async (
           trx.raw('COALESCE(tss.is_default_enabled, true) as is_default_enabled')
         )
         .where('ns.category_id', categoryId)
-        .whereNot('ns.name', LEGACY_TICKET_CLOSED_SUBTYPE)
         .orderBy('ns.name');
 
       return { ...category, subtypes };
@@ -568,18 +561,9 @@ export const sendTestEmailAction = withAuth(async (
     const htmlContent = overrideContent?.html_content ?? template.html_content;
     const textContent = overrideContent?.text_content ?? template.text_content;
 
-    // 5. Get sample data and substitute variables. Tenant copies are colored
-    // like a real send: pre-rendered tables follow the applied branding palette,
-    // or the saved brand colors when branding has not been applied yet.
+    // 5. Get sample data and substitute variables
     const { getSampleDataForPreview } = await import('../../lib/templateSampleData');
-    let tablePalette: EmailPaletteTokens | null = null;
-    if (templateType === 'tenant') {
-      const settingsRow = await tenantScopedTable(trx, 'tenant_settings', tenant).select('settings').first();
-      const settings = settingsRow?.settings && typeof settingsRow.settings === 'object' ? settingsRow.settings : {};
-      const branding = readEmailBrandingPalette(settings.emailBranding);
-      tablePalette = branding ? branding.appliedPalette ?? resolveEmailPalette(branding) : null;
-    }
-    const sampleData = getSampleDataForPreview(template.name, htmlContent, subject, tablePalette);
+    const sampleData = getSampleDataForPreview(template.name, htmlContent, subject);
 
     const { StaticTemplateProcessor } = await import('@alga-psa/email');
     const renderedSubject = `[TEST] ${replaceVars(subject, sampleData)}`;

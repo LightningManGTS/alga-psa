@@ -3,11 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Label } from "@alga-psa/ui/components/Label";
 import { useTranslation } from "@alga-psa/ui/lib/i18n/client";
-import {
-  resolveBrandLogoForPreview,
-  type BrandLogoPreviewUrls,
-  type EmailPaletteTokens,
-} from "@alga-psa/email/branding";
+import { resolveBrandLogoForPreview, type BrandLogoPreviewUrls } from "@alga-psa/email/branding";
 import { getSampleDataForPreview } from "../../lib/templateSampleData";
 import {
   annotateHtmlSource,
@@ -31,7 +27,9 @@ export function replaceTemplateVariables(
   content: string,
   data: Record<string, string>
 ): string {
-  // Expand each block once using the registry's per-item examples.
+  // Expand {{#each path}}...{{/each}} blocks once for preview, qualifying
+  // {{this.*}} references (including {{#if this.*}}) against the block's path
+  // so the registry's per-item examples (e.g. credits.items.creditId) resolve.
   let result = content.replace(
     /\{\{#each\s+([^{}\s]+)\s*\}\}([\s\S]*?)\{\{\/each\}\}/g,
     (_match, path, blockContent: string) => {
@@ -42,19 +40,15 @@ export function replaceTemplateVariables(
           return samplePath ? `${open}${ifTag ?? ''}${samplePath}${close}` : inner;
         }
       );
-      // Resolve row conditionals before the surrounding section's conditionals.
       return replaceTemplateVariables(qualified, data);
     }
   );
 
   // Then, process {{#if condition}}...{{/if}} blocks.
-  // Unknown conditions retain the example content; known empty values hide it.
+  // For preview, show the block content (with variables replaced) since sample data is available.
   result = result.replace(
     /\{\{#if\s+([^}]+)\}\}([\s\S]*?)\{\{\/if\}\}/g,
-    (_match, condition, blockContent) => {
-      const key = condition.trim();
-      return key in data && ['', 'false', '0'].includes(data[key]) ? '' : blockContent;
-    }
+    (_match, _condition, blockContent) => blockContent
   );
 
   // Then replace simple {{variable}} and raw-HTML {{{variable}}} placeholders.
@@ -76,7 +70,6 @@ export function EmailTemplatePreview({
   subject,
   id,
   brandLogoUrls,
-  palette,
   sourceMap,
   highlightOffset,
   onSelectSource,
@@ -91,11 +84,6 @@ export function EmailTemplatePreview({
    * loads the URL instead.
    */
   brandLogoUrls?: BrandLogoPreviewUrls;
-  /**
-   * Palette the send would color pre-rendered tables with (`ticket.timeHtml`,
-   * `ticket.assetsHtml`, ...). Omit for the stock palette.
-   */
-  palette?: EmailPaletteTokens | null;
   /** Links what is rendered back to the HTML source, for the side-by-side editor. */
   sourceMap?: boolean;
   /** Caret offset in the source; the element around it is outlined. */
@@ -110,8 +98,8 @@ export function EmailTemplatePreview({
   selectSourceRef.current = onSelectSource;
 
   const sampleData = useMemo(
-    () => getSampleDataForPreview(templateName, htmlContent, subject, palette),
-    [templateName, htmlContent, subject, palette]
+    () => getSampleDataForPreview(templateName, htmlContent, subject),
+    [templateName, htmlContent, subject]
   );
 
   // The URLs, not the object: callers pass the status field straight through,
