@@ -14,6 +14,7 @@ const RAW_HTML_PATHS = new Set([
   "ticket.changes",
   "ticket.resolution",
   "ticket.description",
+  "ticket.descriptionHtml",
   "ticket.assetsHtml",
   "ticket.materialsHtml",
   "ticket.timeHtml",

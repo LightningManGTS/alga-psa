@@ -10,7 +10,14 @@
  * Time and materials tables carry technician names, non-billable time, material
  * rates and billed state, so they are internal-only. Callers that build a
  * customer-facing context must pass the blocks through
- * `clientFacingDetailBlocks()`.
+ * `clientFacingDetailBlocks()`. The client copy of the Ticket Closed email is
+ * the one exception: `closedClientDetailBlocks()` keeps the time table (so the
+ * customer sees who worked when, and what was billable) but still drops the
+ * materials blocks.
+ *
+ * Time rows are listed oldest first by the entry's work date (`start_time`,
+ * which carries the chosen date for back-dated entries), then technician, so
+ * several entries by one or more technicians read as a timeline.
  *
  * Variable-name contract is documented in
  * `docs/plans/2026-07-17-email-template-variables-inventory.json` (ticket-closed-client
@@ -40,7 +47,11 @@ export interface TicketEmailDetailBlocks {
   materialsHtml: string;
   /** Internal only. Money-formatted total of all material line amounts; '' when none. */
   materialsTotal: string;
-  /** Internal only. HTML table of time entries (worked vs billable), localized; '' when none. */
+  /**
+   * HTML table of time entries (date, technician, worked, billable), oldest
+   * first, localized; '' when none. Internal emails and the closed-client email
+   * only.
+   */
   timeHtml: string;
   /** Sum of worked minutes across the ticket's time entries, formatted. */
   totalTimeWorked: string;
@@ -84,7 +95,7 @@ interface MaterialRow {
   is_billed: boolean | null;
 }
 
-interface TimeEntryRow {
+export interface TimeEntryRow {
   entry_id: string;
   start_time: Date | string | null;
   end_time: Date | string | null;
@@ -237,14 +248,40 @@ function formatEntryDate(
   if (Number.isNaN(date.getTime())) {
     return '';
   }
+  // Date only; numeric parts let the country format pick the order (US: mm/dd/yyyy).
   return formatDateValue(date, locale, {
     timeZone,
-    month: 'short',
-    day: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
     year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
   }, dateFormat);
+}
+
+function entryTimestamp(value: Date | string | null): number {
+  if (!value) {
+    return Number.POSITIVE_INFINITY;
+  }
+  const time = (value instanceof Date ? value : new Date(value)).getTime();
+  return Number.isNaN(time) ? Number.POSITIVE_INFINITY : time;
+}
+
+/**
+ * Chronological order by the entry's work date (`start_time`, which carries the
+ * chosen date for back-dated entries), then technician, then entry id, so
+ * multiple techs and multiple entries per tech always render deterministically.
+ */
+export function sortTimeEntriesChronologically(rows: TimeEntryRow[]): TimeEntryRow[] {
+  return [...rows].sort((a, b) => {
+    const byTime = entryTimestamp(a.start_time) - entryTimestamp(b.start_time);
+    if (byTime !== 0 && !Number.isNaN(byTime)) {
+      return byTime;
+    }
+    const byTech = safeString(a.technician_name).localeCompare(safeString(b.technician_name));
+    if (byTech !== 0) {
+      return byTech;
+    }
+    return safeString(a.entry_id).localeCompare(safeString(b.entry_id));
+  });
 }
 
 function relationshipLabel(type: string | null | undefined, labels: DetailLabels): string {
@@ -306,7 +343,10 @@ async function fetchTicketTimeEntries(db: Knex, tenantId: string, ticketId: stri
   dbScoped.tenantJoin(query, 'users as u', 'te.user_id', 'u.user_id', { type: 'left' });
   return query
     .where({ 'te.work_item_id': ticketId, 'te.work_item_type': 'ticket' })
-    .orderBy('te.start_time', 'asc');
+    .orderBy([
+      { column: 'te.start_time', order: 'asc' },
+      { column: 'te.entry_id', order: 'asc' },
+    ]);
 }
 
 function renderAssetsTable(rows: AssetRow[], labels: DetailLabels): string {
@@ -363,10 +403,10 @@ function renderTimeTable(
   dateFormat: CountryDateFormat,
 ): string {
   return renderTable(
-    [labels.technician, labels.date, labels.worked, labels.billable],
-    rows.map((row) => [
-      escapeHtml(safeString(row.technician_name) || labels.unknown),
+    [labels.date, labels.technician, labels.worked, labels.billable],
+    sortTimeEntriesChronologically(rows).map((row) => [
       escapeHtml(formatEntryDate(row.start_time, timeZone, locale, dateFormat) || '—'),
+      escapeHtml(safeString(row.technician_name) || labels.unknown),
       escapeHtml(formatMinutesAsHoursAndMinutes(workedMinutes(row), labels.duration)),
       escapeHtml(formatMinutesAsHoursAndMinutes(toNumberOrNull(row.billable_duration) ?? 0, labels.duration)),
     ]),
@@ -390,6 +430,15 @@ export function emptyTicketEmailDetailBlocks(): TicketEmailDetailBlocks {
 /** Strips internal-only data (technician time rows, material rates) for customer-facing emails. */
 export function clientFacingDetailBlocks(blocks: TicketEmailDetailBlocks): TicketEmailDetailBlocks {
   return { ...blocks, timeHtml: '', materialsHtml: '', materialsTotal: '' };
+}
+
+/**
+ * Blocks for the client copy of the Ticket Closed email. The closed summary is
+ * the one customer-facing email that shows the time table (date, technician,
+ * worked, billable) in place of the bare totals; material rates stay internal.
+ */
+export function closedClientDetailBlocks(blocks: TicketEmailDetailBlocks): TicketEmailDetailBlocks {
+  return { ...blocks, materialsHtml: '', materialsTotal: '' };
 }
 
 /**

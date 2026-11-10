@@ -2762,13 +2762,13 @@
    ],
    "verificationNotes": [
     "Independently re-extracted every {{...}} path (subject + html + text, all locales) from all 10 template source files and reconciled each against the assembled data object in the two call sites. Confirmed the shared _shared/emailLayout.cjs injects no extra handlebars paths for these templates: its only default handlebars (footer '&copy; {{currentYear}} {{companyName}}') is overridden because every ticket template passes its own footerText, and headerTitle/headerMeta are passed {{ticket.title}}/{{ticket.metaLine}} which are already inventoried.",
-    "DEFECT (ticket-assigned): the pl translation's descriptionVar renders {{ticket.summary}} but the inventory listed it only in uncertainties, not as a variable. Added ticket.summary (availability 'used' \u2014 the template references it \u2014 with a note that it is NOT assembled by sendTicketAssignedNotifications and therefore renders empty for pl recipients).",
+    "CORRECTED (ticket-assigned): every translation uses ticket.descriptionHtml for HTML and ticket.descriptionText for plain text; the unassembled ticket.summary path is no longer referenced.",
     "DEFECT (ticket-closed): the pl closedByVar renders {{ticket.closedAt}} which is a real template path but was missing from variables. Added ticket.closedAt (referenced by pl template, not assembled in handleTicketClosed, renders empty for pl).",
     "DEFECT (ticket-comment-added): the pl translation references {{comment.authorName}} and {{comment.body}}, neither of which is a listed variable. Added both (referenced by pl template, not provided by commentContext which exposes comment.author/comment.content, renders empty for pl).",
-    "DEFECT (ticket-created): the pl descriptionVar renders {{ticket.summary}}; added ticket.summary (referenced by pl template, not assembled in handleTicketCreated, renders empty for pl).",
-    "DEFECT (ticket-team-assigned): the pl descriptionVar renders {{ticket.summary}}; added ticket.summary (referenced by pl template, not assembled, renders empty for pl).",
+    "CORRECTED (ticket-created): every translation uses ticket.descriptionHtml for HTML and ticket.descriptionText for plain text.",
+    "CORRECTED (ticket-team-assigned): every translation uses ticket.descriptionHtml for HTML and ticket.descriptionText for plain text.",
     "DEFECT (ticket-updated): the pl translation renders {{ticket.summary}} (changesVar) and {{ticket.updatedAt}} (Updated By row); added both (referenced by pl template, neither assembled in handleTicketUpdated/handleAccumulatedTicketUpdates, render empty for pl).",
-    "Verified no defect in ticket-created-client and ticket-updated-client: grep confirms they reference no {{ticket.summary}}/{{ticket.updatedAt}} variance (they always use {{ticket.description}} / {{{ticket.changes}}}), matching the inventory.",
+    "ticket-created-client uses ticket.descriptionHtml in HTML and ticket.descriptionText in plain text across all translations. ticket-updated-client continues to use ticket.changes.",
     "Verified callSiteFiles: both files exist and assemble the template data. ticketEmailSubscriber.ts builds baseTicketContext per handler (created/updated/closed/assigned/comment); ticketAutoCloseWarningSubscriber.ts assembles the reduced data.ticket {id,title,metaLine,scheduledCloseDate,url} and sends via getEmailNotificationService().sendNotification. No assembled-but-unlisted context fields were found \u2014 every field of each assembled object is already accounted for as used or available-unused.",
     "Verified accuracy of descriptions/examples: ticket.id is mapped from ticket_number/ticketNumber (human-readable number, not UUID); scheduledCloseDate is a formatted 'Month D, YYYY' string via toLocaleDateString('en-US'); createdAt is a formatted Intl date-time with short tz; priorityColor default #8A4DEA; auto-close metaLine is just 'Ticket #<number>'. All match the inventory.",
     "Availability labels: all existing 'used' / 'available-unused' labels verified correct against template references vs assembled context. The 8 newly added pl-only/unassembled paths are labeled 'used' (the template does reference them) with an explicit note that the value is not assembled so it renders empty \u2014 the two-value availability enum has no distinct 'referenced-but-missing' state."
@@ -2897,7 +2897,7 @@
      "subject": "Ticket Assigned \u2022 {{ticket.title}} ({{ticket.priority}})",
      "conditionals": [],
      "uncertainties": [
-      "The Polish (pl) translation renders the description box from {{ticket.summary}} (descriptionVar) instead of {{ticket.description}}; `ticket.summary` is NOT assembled anywhere in sendTicketAssignedNotifications, so it would render empty for pl recipients.",
+      "All translations preserve rich description HTML and use a separate readable text projection.",
       "Runtime subject is overridden by the subscriber to `You have been assigned to ticket: <title>` (and `You have been added as additional resource to ticket: <title>` for additional resources)."
      ],
      "variables": [
@@ -3023,17 +3023,23 @@
       {
        "path": "ticket.description",
        "type": "string",
-       "description": "Ticket description body (HTML-rendered via {{{ }}} in en/pt; plain {{ }} in fr/es/de/nl/it); falls back to 'No description provided.'.",
+       "description": "Legacy plain description field; the template uses descriptionHtml in HTML and descriptionText in plain text.",
+       "example": "Toner is jammed and red error light is on.",
+       "availability": "available-unused"
+      },
+      {
+       "path": "ticket.descriptionText",
+       "type": "string",
+       "description": "Sanitized plain-text description used by the plain-text email body.",
        "example": "Toner is jammed and red error light is on.",
        "availability": "used"
       },
       {
-       "path": "ticket.summary",
-       "type": "string",
-       "description": "pl-only description-box variable: the Polish translation's descriptionVar renders {{ticket.summary}} instead of ticket.description.",
-       "example": "",
-       "availability": "used",
-       "notes": "Referenced ONLY in the pl translation; NOT assembled in sendTicketAssignedNotifications, so it renders empty for Polish recipients."
+       "path": "ticket.descriptionHtml",
+       "type": "raw-html",
+       "description": "Sanitized rich-text description used by the HTML email body.",
+       "example": "<p>Toner is jammed\u2026</p>",
+       "availability": "used"
       },
       {
        "path": "ticket.url",
@@ -4247,9 +4253,9 @@
       {
        "path": "comment.text",
        "type": "string",
-       "description": "Plain-text extraction of the comment body; assembled but not referenced.",
+       "description": "Readable text projection of the comment body, used by every plain-text translation.",
        "example": "Toner cartridge has been ordered, ETA tomorrow.",
-       "availability": "available-unused"
+       "availability": "used"
       },
       {
        "path": "comment.plainText",
@@ -4287,7 +4293,7 @@
      "subject": "New Ticket \u2022 {{ticket.title}} ({{ticket.priority}})",
      "conditionals": [],
      "uncertainties": [
-      "The Polish (pl) translation renders the description box from {{ticket.summary}} instead of {{ticket.description}}; `ticket.summary` is NOT assembled in handleTicketCreated, so it renders empty for pl recipients.",
+      "All translations preserve rich description HTML and use a separate readable text projection.",
       "Runtime subject is overridden by the subscriber to `New Ticket \u2022 <title> (<priority>)` (matches the template).",
       "This MSP template is sent to the assigned agent and internal watchers; external recipients get ticket-created-client instead."
      ],
@@ -4421,17 +4427,9 @@
       {
        "path": "ticket.description",
        "type": "string",
-       "description": "Ticket description body (HTML-rendered via {{{ }}}); falls back to 'No description provided.'.",
+       "description": "Legacy plain description field; the template uses descriptionHtml in HTML and descriptionText in plain text.",
        "example": "Toner is jammed and red error light is on.",
-       "availability": "used"
-      },
-      {
-       "path": "ticket.summary",
-       "type": "string",
-       "description": "pl-only description-box variable: the Polish translation's descriptionVar renders {{ticket.summary}} instead of ticket.description.",
-       "example": "",
-       "availability": "used",
-       "notes": "Referenced ONLY in the pl translation; NOT assembled in handleTicketCreated, so it renders empty for Polish recipients."
+       "availability": "available-unused"
       },
       {
        "path": "ticket.url",
@@ -4450,16 +4448,16 @@
       {
        "path": "ticket.descriptionText",
        "type": "string",
-       "description": "Plain-text version of the description; assembled but not referenced.",
+       "description": "Plain-text version of the description used by the plain-text email body.",
        "example": "Toner is jammed and red error light is on.",
-       "availability": "available-unused"
+       "availability": "used"
       },
       {
        "path": "ticket.descriptionHtml",
-       "type": "string",
-       "description": "HTML version of the description; assembled separately but the template uses ticket.description.",
+       "type": "raw-html",
+       "description": "Sanitized rich-text description used by the HTML email body.",
        "example": "<p>Toner is jammed\u2026</p>",
-       "availability": "available-unused"
+       "availability": "used"
       },
       {
        "path": "ticket.requesterEmail",
@@ -4650,16 +4648,16 @@
       {
        "path": "ticket.descriptionText",
        "type": "string",
-       "description": "Plain-text version of the description; assembled but not referenced.",
+       "description": "Plain-text version of the description used by the plain-text email body.",
        "example": "Toner is jammed and red error light is on.",
-       "availability": "available-unused"
+       "availability": "used"
       },
       {
        "path": "ticket.descriptionHtml",
-       "type": "string",
-       "description": "HTML version of the description; assembled separately but the template uses ticket.description.",
+       "type": "raw-html",
+       "description": "Sanitized rich-text description used by the HTML email body.",
        "example": "<p>Toner is jammed\u2026</p>",
-       "availability": "available-unused"
+       "availability": "used"
       },
       {
        "path": "ticket.requesterEmail",
@@ -4975,9 +4973,9 @@
       {
        "path": "ticket.description",
        "type": "string",
-       "description": "Ticket description body shown in the description box (rendered via {{ }}).",
+       "description": "Legacy plain description field; the template uses descriptionHtml in HTML and descriptionText in plain text.",
        "example": "Toner is jammed and red error light is on.",
-       "availability": "used"
+       "availability": "available-unused"
       },
       {
        "path": "ticket.url",
@@ -5094,16 +5092,16 @@
       {
        "path": "ticket.descriptionText",
        "type": "string",
-       "description": "Plain-text description; assembled but unused.",
+       "description": "Sanitized plain-text description used by the plain-text email body.",
        "example": "Toner is jammed and red error light is on.",
-       "availability": "available-unused"
+       "availability": "used"
       },
       {
        "path": "ticket.descriptionHtml",
-       "type": "string",
-       "description": "HTML description; assembled but the template uses ticket.description.",
+       "type": "raw-html",
+       "description": "Sanitized rich-text description used by the HTML email body.",
        "example": "<p>Toner is jammed\u2026</p>",
-       "availability": "available-unused"
+       "availability": "used"
       }
      ]
     },
@@ -5113,7 +5111,7 @@
      "subject": "Team Assigned to Your Ticket \u2022 {{ticket.title}}",
      "conditionals": [],
      "uncertainties": [
-      "The Polish (pl) translation renders the description box from {{ticket.summary}} instead of {{ticket.description}}; `ticket.summary` is NOT assembled, so it renders empty for pl recipients.",
+      "All translations preserve rich description HTML and use a separate readable text projection.",
       "Runtime subject is overridden to `Team Assigned to Your Ticket: <title>` (contact) or `Team Assigned to Ticket: <title>` (watchers).",
       "teamName is only present when the assignment event carries changes.assigned_team_id; this client-facing template is sent to the primary contact and watchers when a team (not an individual) is assigned.",
       "Context is {...assigned baseTicketContext, teamName, url}, so assignee fields are present but unused here."
@@ -5227,17 +5225,23 @@
       {
        "path": "ticket.description",
        "type": "string",
-       "description": "Ticket description body (HTML-rendered via {{{ }}}).",
+       "description": "Legacy plain description field; the template uses descriptionHtml in HTML and descriptionText in plain text.",
+       "example": "Toner is jammed and red error light is on.",
+       "availability": "available-unused"
+      },
+      {
+       "path": "ticket.descriptionText",
+       "type": "string",
+       "description": "Sanitized plain-text description used by the plain-text email body.",
        "example": "Toner is jammed and red error light is on.",
        "availability": "used"
       },
       {
-       "path": "ticket.summary",
-       "type": "string",
-       "description": "pl-only description-box variable: the Polish translation's descriptionVar renders {{ticket.summary}} instead of ticket.description.",
-       "example": "",
-       "availability": "used",
-       "notes": "Referenced ONLY in the pl translation; NOT assembled in sendTicketAssignedNotifications, so it renders empty for Polish recipients."
+       "path": "ticket.descriptionHtml",
+       "type": "raw-html",
+       "description": "Sanitized rich-text description used by the HTML email body.",
+       "example": "<p>Toner is jammed\u2026</p>",
+       "availability": "used"
       },
       {
        "path": "ticket.url",
@@ -6139,10 +6143,10 @@
      {
       "path": "ticket.description",
       "type": "string",
-      "description": "Ticket description body (raw HTML via triple-stache in en/pt; escaped in fr/es/de/nl/it).",
+      "description": "Legacy plain-text ticket description body.",
       "example": "Toner is jammed and red error light is on.",
-      "availability": "used",
-      "notes": "RAW-HTML in some locales. pl translations swap in {{ticket.summary}} (never assembled -> empty). descriptionText/descriptionHtml duplicates are assembled-unused."
+      "availability": "available-unused",
+      "notes": "Description emails use ticket.descriptionHtml in HTML and ticket.descriptionText in plain text for every locale."
      },
      {
       "path": "ticket.url",

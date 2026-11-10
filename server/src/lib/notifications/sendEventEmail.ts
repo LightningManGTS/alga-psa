@@ -166,6 +166,7 @@ function projectSponsorEmailContext(context: Record<string, unknown>, redactions
     priority: ticket.priority, priorityColor: ticket.priorityColor, status: ticket.status,
     board: ticket.board, categoryDetails: ticket.categoryDetails, category: ticket.category, subcategory: ticket.subcategory,
     ticketUrl: ticket.url, description: ticket.description,
+    descriptionHtml: ticket.descriptionHtml, descriptionText: ticket.descriptionText,
     metaLine: ticket.metaLine, authorName: comment.author, commentContent: comment.content,
     commentHtml: comment.html, commentPreview: comment.text, commentRawContent: comment.rawContent,
   });
@@ -177,7 +178,8 @@ function projectSponsorEmailContext(context: Record<string, unknown>, redactions
     clientName: projected.clientName, locationSummary: projected.locationSummary, priority: projected.priority,
     priorityColor: projected.priorityColor, status: projected.status, board: projected.board,
     categoryDetails: projected.categoryDetails, category: projected.category, subcategory: projected.subcategory,
-    description: projected.description, metaLine: projected.metaLine };
+    description: projected.description, descriptionHtml: projected.descriptionHtml, descriptionText: projected.descriptionText,
+    metaLine: projected.metaLine };
   const safeComment = projected.conversationSuppressed
     ? { content: '', html: '', text: '', plainText: '', rawContent: null, author: 'A team member' }
     : { content: projected.commentContent, html: projected.commentHtml, text: projected.commentPreview,

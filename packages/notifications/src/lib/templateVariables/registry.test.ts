@@ -23,6 +23,19 @@ const require = createRequire(import.meta.url);
 const repositoryRoot = path.resolve(__dirname, "../../../../..");
 
 describe("email template variable registry", () => {
+  it("exposes sanitized rich-text descriptions as raw HTML and plain text separately", () => {
+    for (const templateName of [
+      "ticket-assigned",
+      "ticket-created",
+      "ticket-created-client",
+      "ticket-team-assigned",
+    ]) {
+      const variables = templateVariableRegistry[templateName].variables;
+      expect(variables.find((variable) => variable.path === "ticket.descriptionHtml")?.type).toBe("raw-html");
+      expect(variables.find((variable) => variable.path === "ticket.descriptionText")?.type).toBe("string");
+    }
+  });
+
   it("exposes shared and internal-only detail variables to the correct audiences", () => {
     for (const variablePath of [
       "ticket.assets", "ticket.assetsHtml", "ticket.categoryDetails",
