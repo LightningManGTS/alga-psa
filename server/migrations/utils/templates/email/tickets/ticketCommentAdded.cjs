@@ -356,7 +356,7 @@ ${c.category}: {{ticket.categoryDetails}}
 ${c.location}: {{ticket.locationSummary}}
 
 ${c.textComment}:
-{{comment.text}}
+${c.commentVar}
 
 ${c.textView}: {{ticket.url}}`;
 }
@@ -372,7 +372,7 @@ ${c.status}: {{ticket.status}}
 ${c.textRequester}: {{ticket.requesterName}} ({{ticket.requesterContact}})
 
 ${c.textComment}:
-{{comment.text}}
+${c.commentVar}
 
 ${c.textView}: {{ticket.url}}`;
 }
