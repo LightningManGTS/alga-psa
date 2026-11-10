@@ -13,7 +13,7 @@ const TERRACOTTA: EmailPaletteTokens = {
 describe("getSampleDataForPreview palette", () => {
   it("keeps the stock-colored detail tables without a palette", () => {
     const data = getSampleDataForPreview("ticket-closed-client", "", "");
-    expect(data["ticket.timeHtml"]).toContain(`color:${STOCK_EMAIL_PALETTE.dark}`);
+    expect(data["ticket.timeHtml"]).toContain("font-weight:600;color:#1f2933;");
     expect(data["ticket.assetsHtml"]).toContain(`border-bottom:2px solid ${STOCK_EMAIL_PALETTE.cardBorder}`);
   });
 
@@ -21,11 +21,11 @@ describe("getSampleDataForPreview palette", () => {
     const data = getSampleDataForPreview("ticket-closed-internal", "", "", TERRACOTTA);
     for (const path of ["ticket.timeHtml", "ticket.assetsHtml", "ticket.materialsHtml"]) {
       const html = data[path];
-      expect(html).toContain(`color:${TERRACOTTA.dark}`);
       expect(html).toContain(`border-bottom:2px solid ${TERRACOTTA.cardBorder}`);
       expect(html).toContain(`border-bottom:1px solid ${TERRACOTTA.infoBoxBorder}`);
-      expect(html).not.toContain(STOCK_EMAIL_PALETTE.dark);
-      // Body text is neutral, not a palette token.
+      expect(html).not.toContain(TERRACOTTA.dark);
+      // Header and body text are neutral, not a palette token.
+      expect(html).toContain("font-weight:600;color:#1f2933;");
       expect(html).toContain("color:#1f2933");
     }
   });
