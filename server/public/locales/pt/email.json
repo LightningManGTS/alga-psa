@@ -13,6 +13,8 @@
     "location": "Localização",
     "totalTimeWorked": "Tempo total trabalhado",
     "totalBillableTime": "Tempo total faturável",
+    "worked": "Trabalhado",
+    "billable": "Faturável",
     "remainingHours": "Horas restantes",
     "devices": "Dispositivos",
     "deviceName": "Nome",

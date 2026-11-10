@@ -13,6 +13,8 @@
     "location": "Standort",
     "totalTimeWorked": "Gesamte Arbeitszeit",
     "totalBillableTime": "Gesamte abrechenbare Zeit",
+    "worked": "Gearbeitet",
+    "billable": "Abrechenbar",
     "remainingHours": "Verbleibende Stunden",
     "devices": "Geräte",
     "deviceName": "Name",

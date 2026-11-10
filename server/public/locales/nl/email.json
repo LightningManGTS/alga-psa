@@ -13,6 +13,8 @@
     "location": "Locatie",
     "totalTimeWorked": "Totale gewerkte tijd",
     "totalBillableTime": "Totale factureerbare tijd",
+    "worked": "Gewerkt",
+    "billable": "Factureerbaar",
     "remainingHours": "Resterende uren",
     "devices": "Apparaten",
     "deviceName": "Naam",

@@ -1,11 +1,23 @@
+import { Temporal } from '@js-temporal/polyfill';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import Handlebars from 'handlebars';
+import { countryDateFormat } from '@alga-psa/core/i18n/countryDateFormat';
+
+const today = Temporal.Now.plainDateISO('UTC');
+const fixtureDay = today.subtract({ days: 7 });
+const monthStart = today.with({ day: 1 });
+const earlierWorkDay = monthStart.subtract({ months: 2 }).with({ day: 28 });
+const laterWorkDay = monthStart.subtract({ months: 1 }).with({ day: 2 });
+const atUtc = (date: Temporal.PlainDate, time: string): string => `${date.toString()}T${time}:00Z`;
+const displayDate = (date: Temporal.PlainDate): string =>
+  `${String(date.month).padStart(2, '0')}/${String(date.day).padStart(2, '0')}/${date.year}`;
 
 const runtime = vi.hoisted(() => ({
   assets: [] as Array<Record<string, any>>,
   materials: [] as Array<Record<string, any>>,
   timeEntries: [] as Array<Record<string, any>>,
   availableBlockMinutes: 0 as number,
+  tenantSettings: undefined as Record<string, any> | undefined,
 }));
 
 vi.mock('@alga-psa/db', () => ({
@@ -23,6 +35,7 @@ vi.mock('@alga-psa/db', () => ({
         if (table === 'asset_associations as aa') return Object.assign(query, { then: (res: any) => Promise.resolve(runtime.assets).then(res) });
         if (table === 'ticket_materials as tm') return Object.assign(query, { then: (res: any) => Promise.resolve(runtime.materials).then(res) });
         if (table === 'time_entries as te') return Object.assign(query, { then: (res: any) => Promise.resolve(runtime.timeEntries).then(res) });
+        if (table === 'tenant_settings') return Object.assign(query, { first: async () => runtime.tenantSettings });
         throw new Error(`Unexpected table in ticketEmailDetailBlocks test: ${table}`);
       },
     };
@@ -41,10 +54,17 @@ vi.mock('@alga-psa/core/logger', () => ({
 import {
   buildTicketEmailDetailBlocks,
   clientFacingDetailBlocks,
+  closedClientDetailBlocks,
+  DETAIL_TD_STYLE,
+  DETAIL_TH_STYLE,
+  detailTableStyles,
   emptyTicketEmailDetailBlocks,
   escapeHtml,
   formatCentsAmount,
+  loadDetailBlockPalette,
+  resolveDetailBlockPalette,
 } from '../../../lib/notifications/ticketEmailDetailBlocks';
+import { STOCK_EMAIL_PALETTE } from '@alga-psa/email/branding';
 import { getAvailableHourBlockMinutes } from '@alga-psa/shared/billingClients/hourBlockService';
 import logger from '@alga-psa/core/logger';
 
@@ -90,6 +110,52 @@ describe('formatCentsAmount', () => {
   });
 });
 
+describe('detailTableStyles', () => {
+  it('renders the documented stock styles for the stock palette', () => {
+    expect(detailTableStyles(STOCK_EMAIL_PALETTE)).toEqual({ th: DETAIL_TH_STYLE, td: DETAIL_TD_STYLE });
+  });
+});
+
+describe('resolveDetailBlockPalette', () => {
+  it('returns the stock palette when no palette has been applied', () => {
+    expect(resolveDetailBlockPalette(undefined)).toBe(STOCK_EMAIL_PALETTE);
+    expect(resolveDetailBlockPalette({ emailBranding: {} })).toBe(STOCK_EMAIL_PALETTE);
+  });
+
+  it('uses applied hex tokens and keeps stock values for invalid ones', () => {
+    const palette = resolveDetailBlockPalette({
+      emailBranding: { appliedPalette: { dark: '#0A3D62', cardBorder: 'not-a-color', infoBoxBorder: '#cce' } },
+    });
+    expect(palette.dark).toBe('#0a3d62');
+    expect(palette.cardBorder).toBe(STOCK_EMAIL_PALETTE.cardBorder);
+    expect(palette.infoBoxBorder).not.toBe(STOCK_EMAIL_PALETTE.infoBoxBorder);
+  });
+
+  it('rejects CSS tokens that could break out of a style attribute', () => {
+    const palette = resolveDetailBlockPalette({
+      emailBranding: { appliedPalette: { gradient: 'red;" onload="x', badgeBg: 'rgba(1, 2, 3, 0.5)' } },
+    });
+    expect(palette.gradient).toBe(STOCK_EMAIL_PALETTE.gradient);
+    expect(palette.badgeBg).toBe('rgba(1, 2, 3, 0.5)');
+  });
+});
+
+describe('loadDetailBlockPalette', () => {
+  beforeEach(() => {
+    runtime.tenantSettings = undefined;
+  });
+
+  it('falls back to stock when the tenant has no settings row', async () => {
+    await expect(loadDetailBlockPalette(fakeDb, tenantId)).resolves.toBe(STOCK_EMAIL_PALETTE);
+  });
+
+  it('reads the applied palette from tenant settings', async () => {
+    runtime.tenantSettings = { settings: { emailBranding: { appliedPalette: { dark: '#123456' } } } };
+    const palette = await loadDetailBlockPalette(fakeDb, tenantId);
+    expect(palette.dark).toBe('#123456');
+  });
+});
+
 describe('buildTicketEmailDetailBlocks', () => {
   beforeEach(() => {
     runtime.assets = [];
@@ -111,6 +177,7 @@ describe('buildTicketEmailDetailBlocks', () => {
     expect(blocks.assets).toEqual([]);
     expect(blocks.materialsHtml).toBe('');
     expect(blocks.timeHtml).toBe('');
+    expect(blocks.timeEntries).toEqual([]);
     expect(blocks.materialsTotal).toBe('');
     expect(blocks.totalTimeWorked).toBe('0 hrs');
     expect(blocks.totalTimeBillable).toBe('0 hrs');
@@ -143,6 +210,26 @@ describe('buildTicketEmailDetailBlocks', () => {
     expect(blocks.assetsHtml).toContain('Related');
     // Null fields render as em-dash placeholders.
     expect(blocks.assetsHtml).toContain('—');
+  });
+
+  it('styles table headers and rules with the stock palette by default', async () => {
+    runtime.assets = [{ asset_tag: 'AST-001', name: 'Laptop', serial_number: null, status: null, relationship_type: 'affected' }];
+    const blocks = await buildTicketEmailDetailBlocks(fakeDb, tenantId, ticketId, clientId, 'UTC');
+    expect(blocks.assetsHtml).toContain(`border-bottom:2px solid ${STOCK_EMAIL_PALETTE.cardBorder}`);
+    expect(blocks.assetsHtml).toContain(`color:${STOCK_EMAIL_PALETTE.dark}`);
+    expect(blocks.assetsHtml).toContain(`border-bottom:1px solid ${STOCK_EMAIL_PALETTE.infoBoxBorder}`);
+  });
+
+  it('styles table headers and rules with the applied branding palette', async () => {
+    runtime.assets = [{ asset_tag: 'AST-001', name: 'Laptop', serial_number: null, status: null, relationship_type: 'affected' }];
+    const palette = { ...STOCK_EMAIL_PALETTE, dark: '#0a3d62', cardBorder: '#b3d4fc', infoBoxBorder: '#d6e9ff' };
+    const blocks = await buildTicketEmailDetailBlocks(
+      fakeDb, tenantId, ticketId, clientId, 'UTC', undefined, undefined, palette,
+    );
+    expect(blocks.assetsHtml).toContain('border-bottom:2px solid #b3d4fc');
+    expect(blocks.assetsHtml).toContain('color:#0a3d62');
+    expect(blocks.assetsHtml).toContain('border-bottom:1px solid #d6e9ff');
+    expect(blocks.assetsHtml).not.toContain(STOCK_EMAIL_PALETTE.dark);
   });
 
   it('exposes selectable asset fields without pre-escaping them', async () => {
@@ -208,9 +295,11 @@ describe('buildTicketEmailDetailBlocks', () => {
       { item_name: 'SSD', quantity: 2.5, rate: 7500, currency_code: 'EUR', is_billed: false },
     ];
     runtime.timeEntries = [
-      { entry_id: 'e1', start_time: '2026-02-03T10:00:00Z', end_time: '2026-02-03T11:00:00Z', billable_duration: 60 },
+      { entry_id: 'e1', start_time: atUtc(fixtureDay, '10:00'), end_time: atUtc(fixtureDay, '11:00'), billable_duration: 60 },
     ];
-    const blocks = await buildTicketEmailDetailBlocks(fakeDb, tenantId, ticketId, clientId, 'UTC', 'de-DE');
+    const blocks = await buildTicketEmailDetailBlocks(
+      fakeDb, tenantId, ticketId, clientId, 'UTC', 'de-DE', countryDateFormat('DE'),
+    );
     expect(blocks.assetsHtml).toContain('Seriennummer');
     expect(blocks.assetsHtml).toContain('Betroffen');
     expect(blocks.materialsTotal).toBe('187,50\u00a0€');
@@ -218,9 +307,31 @@ describe('buildTicketEmailDetailBlocks', () => {
     expect(blocks.materialsHtml).toContain('2,5');
     expect(blocks.materialsHtml).toContain('Abgerechnet');
     expect(blocks.materialsHtml).toContain('Nein');
-    expect(blocks.timeHtml).toContain('Techniker');
-    expect(blocks.timeHtml).toContain('3. Feb. 2026');
+    const headers = Array.from(blocks.timeHtml.matchAll(/<th\b[^>]*>(.*?)<\/th>/g), (match) => match[1]);
+    expect(headers).toEqual(['Datum', 'Techniker', 'Gearbeitet', 'Abrechenbar']);
+    const germanDate = `${String(fixtureDay.day).padStart(2, '0')}.${String(fixtureDay.month).padStart(2, '0')}.${fixtureDay.year}`;
+    expect(blocks.timeHtml).toContain(germanDate);
+    expect(blocks.timeEntries[0].worked).toBe('1 Std.');
     expect(blocks.totalTimeWorked).toBe('1 Std.');
+  });
+
+  it.each([
+    ['en', ['Date', 'Technician', 'Worked', 'Billable']],
+    ['fr', ['Date', 'Technicien', 'Travaillé', 'Facturable']],
+    ['es', ['Fecha', 'Técnico', 'Trabajado', 'Facturable']],
+    ['de', ['Datum', 'Techniker', 'Gearbeitet', 'Abrechenbar']],
+    ['nl', ['Datum', 'Technicus', 'Gewerkt', 'Factureerbaar']],
+    ['it', ['Data', 'Tecnico', 'Lavorato', 'Fatturabile']],
+    ['pl', ['Data', 'Technik', 'Przepracowano', 'Do rozliczenia']],
+    ['pt', ['Data', 'Técnico', 'Trabalhado', 'Faturável']],
+    ['sv', ['Datum', 'Tekniker', 'Arbetstid', 'Debiterbar']],
+  ])('localizes every time-table column for %s', async (locale, expectedHeaders) => {
+    runtime.timeEntries = [
+      { entry_id: 'e1', start_time: atUtc(fixtureDay, '10:00'), end_time: atUtc(fixtureDay, '11:00'), billable_duration: 60 },
+    ];
+    const blocks = await buildTicketEmailDetailBlocks(fakeDb, tenantId, ticketId, clientId, 'UTC', locale);
+    const headers = Array.from(blocks.timeHtml.matchAll(/<th\b[^>]*>(.*?)<\/th>/g), (match) => match[1]);
+    expect(headers).toEqual(expectedHeaders);
   });
 
   it('keeps totals in different currencies separate', async () => {
@@ -234,15 +345,17 @@ describe('buildTicketEmailDetailBlocks', () => {
     );
   });
 
-  it('redacts internal-only tables and totals from client contexts without altering the source', () => {
+  it('redacts internal-only tables from client contexts while keeping totals', () => {
     const internal = {
       ...emptyTicketEmailDetailBlocks(),
       assetsHtml: '<table>asset</table>',
       materialsHtml: '<table>rate and billed state</table>',
       materialsTotal: '$100.00',
       timeHtml: '<table>technician</table>',
+      timeEntries: [{ date: 'd', technician: 't', worked: '2 hrs', billable: '1 hr' }],
       totalTimeWorked: '2 hrs',
       totalTimeBillable: '1 hr',
+      remainingBlockHours: '3 hrs',
     };
     const client = clientFacingDetailBlocks(internal);
     expect(client).toMatchObject({
@@ -250,40 +363,113 @@ describe('buildTicketEmailDetailBlocks', () => {
       materialsHtml: '',
       materialsTotal: '',
       timeHtml: '',
+      timeEntries: [],
       totalTimeWorked: '2 hrs',
       totalTimeBillable: '1 hr',
+      remainingBlockHours: '3 hrs',
     });
     expect(internal.timeHtml).toContain('technician');
+    expect(internal.timeEntries).toHaveLength(1);
   });
 
-  it('sums worked vs billable minutes across time entries', async () => {
-    const start = new Date('2026-02-03T10:00:00Z');
-    const end = new Date('2026-02-03T11:30:00Z');
+  it('keeps the time table but removes materials from the closed-client context', () => {
+    const blocks = {
+      ...emptyTicketEmailDetailBlocks(),
+      timeHtml: '<table>technician and date</table>',
+      timeEntries: [{ date: 'd', technician: 't', worked: '1 hr', billable: '1 hr' }],
+      materialsHtml: '<table>internal rates</table>',
+      materialsTotal: '$100.00',
+    };
+
+    expect(closedClientDetailBlocks(blocks)).toMatchObject({
+      timeHtml: '<table>technician and date</table>',
+      timeEntries: [{ date: 'd', technician: 't', worked: '1 hr', billable: '1 hr' }],
+      materialsHtml: '',
+      materialsTotal: '',
+    });
+    expect(blocks.materialsHtml).toContain('internal rates');
+  });
+
+  it('falls back to billable minutes and an Unknown technician when data is missing', async () => {
+    const start = new Date(atUtc(fixtureDay, '10:00'));
+    const end = new Date(atUtc(fixtureDay, '11:30'));
     runtime.timeEntries = [
       { entry_id: 'e1', start_time: start, end_time: end, billable_duration: 90, technician_name: 'Ada Lovelace' },
       // Null end_time falls back to billable_duration via workedMinutes().
       { entry_id: 'e2', start_time: start, end_time: null, billable_duration: '15', technician_name: '  ' },
     ];
     const blocks = await buildTicketEmailDetailBlocks(fakeDb, tenantId, ticketId, clientId, 'UTC');
+    expect(blocks.timeEntries.map(({ technician, worked, billable }) => ({ technician, worked, billable }))).toEqual([
+      { technician: 'Unknown', worked: '0 hrs 15 min', billable: '0 hrs 15 min' },
+      { technician: 'Ada Lovelace', worked: '1 hr 30 min', billable: '1 hr 30 min' },
+    ]);
     // worked: 90 + 15 = 105; billable: 90 + 15 = 105
     expect(blocks.totalTimeWorked).toBe('1 hr 45 min');
     expect(blocks.totalTimeBillable).toBe('1 hr 45 min');
     expect(blocks.timeHtml).toContain('Ada Lovelace');
     expect(blocks.timeHtml).toContain('Unknown');
-    expect(blocks.timeHtml).toContain('Feb 3, 2026');
+    expect(blocks.timeHtml).toContain(displayDate(fixtureDay));
+  });
+
+  it('renders time entries chronologically with date-first columns', async () => {
+    runtime.timeEntries = [
+      { entry_id: 'e4', start_time: atUtc(laterWorkDay, '09:00'), end_time: atUtc(laterWorkDay, '12:00'), billable_duration: 180, technician_name: 'Ada Lovelace' },
+      { entry_id: 'e3', start_time: atUtc(earlierWorkDay, '16:00'), end_time: atUtc(earlierWorkDay, '17:00'), billable_duration: 60, technician_name: 'Ada Lovelace' },
+      { entry_id: 'e2', start_time: atUtc(earlierWorkDay, '13:00'), end_time: atUtc(earlierWorkDay, '15:00'), billable_duration: 120, technician_name: 'Grace Hopper' },
+      { entry_id: 'e1', start_time: atUtc(earlierWorkDay, '10:00'), end_time: atUtc(earlierWorkDay, '12:00'), billable_duration: 120, technician_name: 'Ada Lovelace' },
+    ];
+
+    const blocks = await buildTicketEmailDetailBlocks(fakeDb, tenantId, ticketId, clientId, 'UTC');
+    const headerRow = blocks.timeHtml.match(/<thead><tr>(.*?)<\/tr><\/thead>/)?.[1] ?? '';
+    const headers = Array.from(headerRow.matchAll(/<th[^>]*>(.*?)<\/th>/g), (match) => match[1]);
+    expect(headers).toEqual(['Date', 'Technician', 'Worked', 'Billable']);
+
+    const body = blocks.timeHtml.match(/<tbody>(.*?)<\/tbody>/)?.[1] ?? '';
+    const rows = Array.from(body.matchAll(/<tr>(.*?)<\/tr>/g), (row) =>
+      Array.from(row[1].matchAll(/<td[^>]*>(.*?)<\/td>/g), (cell) => cell[1]),
+    );
+    expect(rows).toEqual([
+      [displayDate(earlierWorkDay), 'Ada Lovelace', '2 hrs', '2 hrs'],
+      [displayDate(earlierWorkDay), 'Grace Hopper', '2 hrs', '2 hrs'],
+      [displayDate(earlierWorkDay), 'Ada Lovelace', '1 hr', '1 hr'],
+      [displayDate(laterWorkDay), 'Ada Lovelace', '3 hrs', '3 hrs'],
+    ]);
+    expect(blocks.timeEntries).toEqual([
+      { date: displayDate(earlierWorkDay), technician: 'Ada Lovelace', worked: '2 hrs', billable: '2 hrs' },
+      { date: displayDate(earlierWorkDay), technician: 'Grace Hopper', worked: '2 hrs', billable: '2 hrs' },
+      { date: displayDate(earlierWorkDay), technician: 'Ada Lovelace', worked: '1 hr', billable: '1 hr' },
+      { date: displayDate(laterWorkDay), technician: 'Ada Lovelace', worked: '3 hrs', billable: '3 hrs' },
+    ]);
+  });
+
+  it('exposes plain-text time entries that Handlebars escapes for text bodies', async () => {
+    runtime.timeEntries = [
+      { entry_id: 'e1', start_time: atUtc(fixtureDay, '10:00'), end_time: atUtc(fixtureDay, '11:00'), billable_duration: 0, technician_name: 'Ada <Ops>' },
+    ];
+    const blocks = await buildTicketEmailDetailBlocks(fakeDb, tenantId, ticketId, clientId, 'UTC');
+    expect(blocks.timeEntries).toEqual([
+      { date: displayDate(fixtureDay), technician: 'Ada <Ops>', worked: '1 hr', billable: '0 hrs' },
+    ]);
+    expect(blocks.timeHtml).toContain('Ada &lt;Ops&gt;');
+    const text = Handlebars.compile(
+      '{{#each ticket.timeEntries}}{{date}} · {{technician}} · {{worked}} · {{billable}}\n{{/each}}',
+      { strict: true },
+    )({ ticket: blocks });
+    expect(text).toBe(`${displayDate(fixtureDay)} · Ada &lt;Ops&gt; · 1 hr · 0 hrs\n`);
   });
 
   it('computes worked minutes distinct from billable when entry spans differ', async () => {
     runtime.timeEntries = [
       {
         entry_id: 'e1',
-        start_time: '2026-02-03T10:00:00Z',
-        end_time: '2026-02-03T12:00:00Z',
+        start_time: atUtc(fixtureDay, '10:00'),
+        end_time: atUtc(fixtureDay, '12:00'),
         billable_duration: 45,
         technician_name: 'Grace Hopper',
       },
     ];
     const blocks = await buildTicketEmailDetailBlocks(fakeDb, tenantId, ticketId, clientId, 'UTC');
+    expect(blocks.timeEntries[0]).toMatchObject({ worked: '2 hrs', billable: '0 hrs 45 min' });
     expect(blocks.totalTimeWorked).toBe('2 hrs');
     expect(blocks.totalTimeBillable).toBe('0 hrs 45 min');
   });

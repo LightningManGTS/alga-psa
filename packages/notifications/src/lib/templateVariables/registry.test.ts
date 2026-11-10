@@ -23,10 +23,24 @@ const require = createRequire(import.meta.url);
 const repositoryRoot = path.resolve(__dirname, "../../../../..");
 
 describe("email template variable registry", () => {
+  it("exposes sanitized rich-text descriptions as raw HTML and plain text separately", () => {
+    for (const templateName of [
+      "ticket-assigned",
+      "ticket-created",
+      "ticket-created-client",
+      "ticket-team-assigned",
+    ]) {
+      const variables = templateVariableRegistry[templateName].variables;
+      expect(variables.find((variable) => variable.path === "ticket.descriptionHtml")?.type).toBe("raw-html");
+      expect(variables.find((variable) => variable.path === "ticket.descriptionText")?.type).toBe("string");
+    }
+  });
+
   it("exposes shared and internal-only detail variables to the correct audiences", () => {
     for (const variablePath of [
       "ticket.assets", "ticket.assetsHtml", "ticket.categoryDetails",
-      "ticket.totalTimeWorked", "ticket.totalTimeBillable", "ticket.remainingBlockHours",
+      "ticket.timeHtml", "ticket.timeEntries", "ticket.totalTimeWorked",
+      "ticket.totalTimeBillable", "ticket.remainingBlockHours",
     ]) {
       for (const audience of ["client", "internal"]) {
         expect(templateVariableRegistry[`ticket-closed-${audience}`].variables.some(
@@ -34,7 +48,7 @@ describe("email template variable registry", () => {
         )).toBe(true);
       }
     }
-    for (const variablePath of ["ticket.materialsHtml", "ticket.materialsTotal", "ticket.timeHtml"]) {
+    for (const variablePath of ["ticket.materialsHtml", "ticket.materialsTotal"]) {
       expect(templateVariableRegistry["ticket-closed-client"].variables.some(
         (entry) => entry.path === variablePath,
       )).toBe(false);
@@ -68,7 +82,7 @@ describe("email template variable registry", () => {
     }
     for (const [path, headers] of [
       ["ticket.materialsHtml", ["Item", "Qty", "Rate", "Amount", "Billed"]],
-      ["ticket.timeHtml", ["Technician", "Date", "Worked", "Billable"]],
+      ["ticket.timeHtml", ["Date", "Technician", "Worked", "Billable"]],
     ] as const) {
       const sample = internal.variables.find((variable) => variable.path === path)!.example;
       for (const header of headers) expect(sample).toContain(`>${header}</th>`);
@@ -81,13 +95,14 @@ describe("email template variable registry", () => {
     const render = Handlebars.compile(source, { strict: true });
     const data = getNestedTemplateExampleData("ticket-closed-internal");
     const html = render(data);
-    for (const value of ["Office Printer", "Toner cartridge", "3 hrs 30 min", "2 hrs 15 min", "12 hrs 45 min"]) {
+    for (const value of ["Office Printer", "Toner cartridge", "Time Entries", "Jane Smith", "3 hrs 30 min", "2 hrs 15 min", "12 hrs 45 min"]) {
       expect(html).toContain(value);
     }
     const emptyHtml = render({
       ticket: {
         assetsHtml: "", materialsHtml: "", materialsTotal: "0",
-        totalTimeWorked: "0 hrs", totalTimeBillable: "0 hrs", remainingBlockHours: "0 hrs",
+        timeHtml: "", totalTimeWorked: "0 hrs", totalTimeBillable: "0 hrs",
+        remainingBlockHours: "0 hrs",
       },
     });
     expect(emptyHtml).not.toContain("<h3>");

@@ -63,6 +63,8 @@ const CO_MANAGED_NOTIFICATION_SNAPSHOT_SPEC = {
   commentPreview: CO_MANAGED_NOTIFICATION_CONVERSATION_ALIASES,
   commentHtml: CO_MANAGED_NOTIFICATION_CONVERSATION_ALIASES,
   commentRawContent: CO_MANAGED_NOTIFICATION_CONVERSATION_ALIASES,
+  descriptionHtml: CO_MANAGED_NOTIFICATION_SOURCES.description,
+  descriptionText: CO_MANAGED_NOTIFICATION_SOURCES.description,
 } as const;
 
 /** Canonical notification projection shared by routing and comment delivery adapters. */
