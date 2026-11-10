@@ -7,6 +7,7 @@ import {
   workedMinutes,
 } from '@alga-psa/core';
 import { getAvailableHourBlockMinutes } from '@alga-psa/shared/billingClients/hourBlockService';
+import { LOCALE_CONFIG } from '@alga-psa/core/i18n/config';
 
 export interface TicketEmailAsset {
   assetTag: string;
@@ -93,7 +94,7 @@ function money(amount: number, currencyCode: string): string {
   if (!isSupportedCurrency(currencyCode)) {
     throw new Error(`Ticket email details: unsupported material currency "${currencyCode}"`);
   }
-  return formatCurrencyFromMinorUnits(amount, 'en-US', currencyCode);
+  return formatCurrencyFromMinorUnits(amount, LOCALE_CONFIG.defaultLocale, currencyCode);
 }
 
 function timestamp(value: Date | string | null): number {
@@ -159,7 +160,7 @@ export async function buildTicketEmailDetailBlocks(
   if (!tenant || !ticketId) {
     throw new Error('Ticket email details require a tenant and ticket ID');
   }
-  const dateFormatter = new Intl.DateTimeFormat('en-US', {
+  const dateFormatter = new Intl.DateTimeFormat(LOCALE_CONFIG.defaultLocale, {
     timeZone, year: 'numeric', month: '2-digit', day: '2-digit',
   });
   const [assetRows, materialRows, timeRows, remainingMinutes] = await Promise.all([
