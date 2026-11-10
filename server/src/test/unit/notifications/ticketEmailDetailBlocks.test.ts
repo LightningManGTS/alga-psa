@@ -152,7 +152,8 @@ describe('resolveDetailBlockPalette', () => {
     expect(palette.cardBorder).toBe('#e5e4ea');
     expect(palette.infoBoxBorder).toBe('#e9e9ee');
     expect(palette.outerBg).not.toBe(STOCK_EMAIL_PALETTE.outerBg);
-    expect(detailTableStyles(palette).th).toContain('color:#1c183e');
+    expect(detailTableStyles(palette).th).toContain('border-bottom:2px solid #e5e4ea');
+    expect(detailTableStyles(palette).th).not.toContain('#1c183e');
   });
 
   it('prefers the applied palette over the saved colors', () => {
@@ -243,7 +244,8 @@ describe('buildTicketEmailDetailBlocks', () => {
     runtime.assets = [{ asset_tag: 'AST-001', name: 'Laptop', serial_number: null, status: null, relationship_type: 'affected' }];
     const blocks = await buildTicketEmailDetailBlocks(fakeDb, tenantId, ticketId, clientId, 'UTC');
     expect(blocks.assetsHtml).toContain(`border-bottom:2px solid ${STOCK_EMAIL_PALETTE.cardBorder}`);
-    expect(blocks.assetsHtml).toContain(`color:${STOCK_EMAIL_PALETTE.dark}`);
+    expect(blocks.assetsHtml).toContain('font-weight:600;color:#1f2933;');
+    expect(blocks.assetsHtml).not.toContain(STOCK_EMAIL_PALETTE.dark);
     expect(blocks.assetsHtml).toContain(`border-bottom:1px solid ${STOCK_EMAIL_PALETTE.infoBoxBorder}`);
   });
 
@@ -254,7 +256,9 @@ describe('buildTicketEmailDetailBlocks', () => {
       fakeDb, tenantId, ticketId, clientId, 'UTC', undefined, undefined, palette,
     );
     expect(blocks.assetsHtml).toContain('border-bottom:2px solid #b3d4fc');
-    expect(blocks.assetsHtml).toContain('color:#0a3d62');
+    // The palette has no text-color token, so headers stay neutral.
+    expect(blocks.assetsHtml).toContain('font-weight:600;color:#1f2933;');
+    expect(blocks.assetsHtml).not.toContain('#0a3d62');
     expect(blocks.assetsHtml).toContain('border-bottom:1px solid #d6e9ff');
     expect(blocks.assetsHtml).not.toContain(STOCK_EMAIL_PALETTE.dark);
   });

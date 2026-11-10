@@ -46,12 +46,14 @@ describe('replaceTemplateVariables #each handling', () => {
     const stockData = getSampleDataForPreview('ticket-closed-client', html);
     const branded = getSampleDataForPreview('ticket-closed-client', html, undefined, palette);
 
-    expect(stockData['ticket.timeHtml']).toContain(STOCK_EMAIL_PALETTE.dark);
+    expect(stockData['ticket.timeHtml']).toContain(STOCK_EMAIL_PALETTE.cardBorder);
     for (const path of ['ticket.timeHtml', 'ticket.assetsHtml']) {
-      expect(branded[path]).toContain('color:#1c183e');
+      // Header text is neutral; only the rules follow the palette.
+      expect(branded[path]).toContain('font-weight:600;color:#1f2933;');
+      expect(branded[path]).not.toContain('#1c183e');
       expect(branded[path]).toContain('#e5e4ea');
       expect(branded[path]).toContain('#e9e9ee');
-      expect(branded[path]).not.toContain(STOCK_EMAIL_PALETTE.dark);
+      expect(branded[path]).not.toContain(STOCK_EMAIL_PALETTE.cardBorder);
     }
   });
 
