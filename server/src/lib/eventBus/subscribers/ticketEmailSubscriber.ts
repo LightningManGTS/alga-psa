@@ -49,7 +49,6 @@ import {
   type CountryDateFormat,
 } from '@alga-psa/core/i18n/countryDateFormat';
 import { resolveEffectiveTimeZone } from '../../utils/workDate';
-import { rewriteTicketCommentImagesToCid } from './ticketCommentInlineImageEmail';
 import {
   normalizeRecipientEmail,
   extractActiveWatcherEmails,
@@ -1237,6 +1236,7 @@ async function buildTicketSummaryEmailContext(
   const locationSummary = locationSegments.length > 0 ? locationSegments.join(' • ') : 'Not specified';
 
   let rawDescription = '';
+  let descriptionCommentId: string | undefined;
   if (ticket.attributes && typeof ticket.attributes === 'object' && 'description' in ticket.attributes) {
     rawDescription = safeString((ticket.attributes as Record<string, unknown>).description);
   }
@@ -1249,12 +1249,13 @@ async function buildTicketSummaryEmailContext(
   // message instead of "No description provided".
   if (!rawDescription) {
     const descriptionComment = await tenantDb(db, tenantId).table('comments')
-      .select('note')
+      .select('note', 'comment_id')
       .where({ ticket_id: ticket.ticket_id })
       .orderBy('created_at', 'asc')
       .first();
     if (descriptionComment?.note) {
       rawDescription = safeString(descriptionComment.note);
+      descriptionCommentId = descriptionComment.comment_id;
     }
   }
   // formatBlockNoteContent returns { html:'', text:'' } when the input is
@@ -1302,7 +1303,10 @@ async function buildTicketSummaryEmailContext(
     metaLine
   };
 
-  return { baseTicketContext, priorityName, boardName, internalUrl, portalUrl };
+  const ticketDescriptionSource = rawDescription
+    ? { ticketId: ticket.ticket_id, ...(descriptionCommentId ? { commentId: descriptionCommentId } : {}) }
+    : undefined;
+  return { baseTicketContext, priorityName, boardName, internalUrl, portalUrl, ticketDescriptionSource };
 }
 
 async function handleTicketCreated(event: TicketCreatedEvent): Promise<void> {
@@ -1428,7 +1432,7 @@ async function handleTicketCreated(event: TicketCreatedEvent): Promise<void> {
       });
     }
 
-    const { baseTicketContext, priorityName, boardName, internalUrl, portalUrl } =
+    const { baseTicketContext, priorityName, boardName, internalUrl, portalUrl, ticketDescriptionSource } =
       await buildTicketSummaryEmailContext(db, tenantId, ticket, creatorUserId);
 
     const buildContext = (url: string) => ({
@@ -1466,7 +1470,9 @@ async function handleTicketCreated(event: TicketCreatedEvent): Promise<void> {
       }
 
       sentEmails.add(key);
-      await sendNotificationIfEnabled({ ...params, audienceContent: TICKET_FACTS_AUDIENCE, mailClass: 'ticket', boardId: params.boardId ?? ticket.board_id }, subtypeName, recipientUserId ?? undefined);
+      await sendNotificationIfEnabled({
+        ...params, audienceContent: TICKET_FACTS_AUDIENCE, ticketDescriptionSource, mailClass: 'ticket', boardId: params.boardId ?? ticket.board_id,
+      }, subtypeName, recipientUserId ?? undefined);
     };
     const activeWatcherEmails = extractActiveWatcherEmails(ticket.attributes);
 
@@ -1637,7 +1643,7 @@ async function handleTicketStatusChanged(event: { id?: string; payload: any }): 
       return;
     }
 
-    const { baseTicketContext, priorityName, boardName, internalUrl } =
+    const { baseTicketContext, priorityName, boardName, internalUrl, ticketDescriptionSource } =
       await buildTicketSummaryEmailContext(db, tenantId, ticket, actorUserId);
 
     const statusNames = await tenantDb(db, tenantId).table('statuses')
@@ -1673,6 +1679,7 @@ async function handleTicketStatusChanged(event: { id?: string; payload: any }): 
         template: 'ticket-board-status-entered',
         context,
         audienceContent: TICKET_FACTS_AUDIENCE,
+        ticketDescriptionSource,
         mailClass: 'ticket',
         boardId: ticket.board_id,
       }, 'Board Ticket Status Entered', recipient.userId);
@@ -1694,6 +1701,7 @@ async function handleTicketStatusChanged(event: { id?: string; payload: any }): 
         template: 'ticket-board-status-entered',
         context,
         audienceContent: TICKET_FACTS_AUDIENCE,
+        ticketDescriptionSource,
         mailClass: 'ticket',
         boardId: ticket.board_id,
         replyContext: {
@@ -3080,34 +3088,14 @@ async function handleTicketCommentAdded(event: TicketCommentAddedEvent): Promise
     const additionalResources = await fetchAdditionalTicketResources(db, tenantId, payload.ticketId);
 
     const commentFormatting = formatBlockNoteContent(payload.comment?.content);
-    const inlineCommentImageRewrite = await rewriteTicketCommentImagesToCid({
-      db,
-      tenantId,
-      ticketId: payload.ticketId,
-      html: commentFormatting.html,
-    });
-
-    inlineCommentImageRewrite.outcomes.forEach((outcome) => {
-      logger.info('[TicketEmailSubscriber] Comment inline image processing outcome', {
-        tenantId,
-        ticketId: payload.ticketId,
-        commentId: payload.comment?.id,
-        sourceUrl: outcome.sourceUrl,
-        resolvedFileId: outcome.resolvedFileId,
-        strategy: outcome.strategy,
-        reason: outcome.reason,
-      });
-    });
-
     const commentContext = {
       ...(payload.comment ?? {}),
-      content: inlineCommentImageRewrite.html,
-      html: inlineCommentImageRewrite.html,
+      content: commentFormatting.html,
+      html: commentFormatting.html,
       text: commentFormatting.text,
       plainText: commentFormatting.text,
       rawContent: payload.comment?.content ?? null
     };
-    const inlineCommentImageAttachments = inlineCommentImageRewrite.attachments;
 
     const { internalUrl, portalUrl } = await resolveTicketLinks(db, tenantId, ticket.ticket_id, ticket.ticket_number);
 
@@ -3325,7 +3313,6 @@ async function handleTicketCommentAdded(event: TicketCommentAddedEvent): Promise
             relationshipId: coManagedStep.plan.relationshipId, sponsorTenant: coManagedStep.plan.sponsorTenant,
             principalId: recipient.principalId,
           } } : {}),
-          attachments: projection?.conversationSuppressed ? [] : inlineCommentImageAttachments,
           ...commentThreadHeaderParams,
         }, 'Ticket Comment Added', recipient.kind === 'customer_user' ? recipient.principalId : undefined);
       }
@@ -3355,7 +3342,6 @@ async function handleTicketCommentAdded(event: TicketCommentAddedEvent): Promise
           commentId: payload.comment?.id,
           threadId: ticket.email_metadata?.threadId
         },
-        attachments: inlineCommentImageAttachments,
         ...commentThreadHeaderParams,
         // Real Cc/Bcc headers, so the requester sees who was copied and
         // reply-all reaches them. One message, one Message-ID, one reply token.
@@ -3394,14 +3380,12 @@ async function handleTicketCommentAdded(event: TicketCommentAddedEvent): Promise
         template: 'ticket-comment-added',
         context: buildContext(portalUrl),
         replyContext: fallbackReplyContext,
-        attachments: inlineCommentImageAttachments,
         ...commentThreadHeaderParams,
         ...(ticket.client_id ? { recipientClientId: ticket.client_id } : {}),
       };
 
       if (oneOffCc.length > 0) {
-        // The first Cc address carries the `To` so the delivery claim and the
-        // per-recipient attachment gate still key on a single address.
+        // The first Cc address carries `To` so the delivery claim has one key.
         const [primaryOneOff, ...remainingCc] = oneOffCc;
         const sent = await sendIfUnique({
           ...fallbackBase,
@@ -3474,7 +3458,6 @@ async function handleTicketCommentAdded(event: TicketCommentAddedEvent): Promise
               ticketId: child.ticket_id,
               threadId: childMeta.threadId
             },
-            attachments: inlineCommentImageAttachments,
             headers: Object.keys(headers).length > 0 ? headers : undefined,
             recipientClientId: child.client_id || undefined
           }, 'Ticket Comment Added (Bundled Child)');
@@ -3544,7 +3527,6 @@ async function handleTicketCommentAdded(event: TicketCommentAddedEvent): Promise
           commentId: payload.comment?.id,
           threadId: ticket.email_metadata?.threadId
         },
-        attachments: inlineCommentImageAttachments,
       }, 'Ticket Comment Added', ticket.assigned_to);
     }
 
@@ -3571,7 +3553,6 @@ async function handleTicketCommentAdded(event: TicketCommentAddedEvent): Promise
             commentId: payload.comment?.id,
             threadId: ticket.email_metadata?.threadId
           },
-          attachments: inlineCommentImageAttachments,
         }, 'Ticket Comment Added', resource.user_id);
       }
     }
@@ -3752,6 +3733,13 @@ async function handleTicketClosed(event: TicketClosedEvent): Promise<void> {
       latestResolutionComment,
       latestClientVisibleResolutionComment,
     );
+    const externalResolutionSource = latestClientVisibleResolutionComment?.comment_id &&
+      !latestClientVisibleResolutionComment.is_internal
+      ? { ticketId: payload.ticketId, commentId: latestClientVisibleResolutionComment.comment_id, audience: 'public' as const }
+      : undefined;
+    const internalResolutionSource = latestResolutionComment?.comment_id
+      ? { ticketId: payload.ticketId, commentId: latestResolutionComment.comment_id, audience: 'authorized' as const }
+      : undefined;
     // A resolution written to close the ticket has its own comment email
     // suppressed (metadata.closes_ticket), so this message is the one that
     // carries its one-off Cc/Bcc. Only that comment's recipients are used: a
@@ -3901,6 +3889,7 @@ async function handleTicketClosed(event: TicketClosedEvent): Promise<void> {
         subject: `Ticket Closed: ${ticket.title}`,
         template: 'ticket-closed',
         context: externalContext,
+        ticketResolutionSource: externalResolutionSource,
         replyContext: closeReplyContext,
         // Real Cc/Bcc headers from the resolution that closed the ticket, so
         // the requester sees who was copied and reply-all reaches them.
@@ -3924,6 +3913,7 @@ async function handleTicketClosed(event: TicketClosedEvent): Promise<void> {
         subject: `Ticket Closed: ${ticket.title}`,
         template: 'ticket-closed',
         context: externalContext,
+        ticketResolutionSource: externalResolutionSource,
         replyContext: closeReplyContext,
         ...(ticket.client_id ? { recipientClientId: ticket.client_id } : {}),
       };
@@ -3993,6 +3983,7 @@ async function handleTicketClosed(event: TicketClosedEvent): Promise<void> {
                 url: childPortalUrl
               }
             },
+            ticketResolutionSource: externalResolutionSource,
             replyContext: {
               ticketId: child.ticket_id,
               threadId: childMeta.threadId
@@ -4019,6 +4010,7 @@ async function handleTicketClosed(event: TicketClosedEvent): Promise<void> {
         subject: `Ticket Closed: ${ticket.title}`,
         template: 'ticket-closed',
         context: internalContext,
+        ticketResolutionSource: internalResolutionSource,
         replyContext: {
           ticketId: ticket.ticket_id || payload.ticketId,
           threadId: ticket.email_metadata?.threadId
@@ -4040,6 +4032,7 @@ async function handleTicketClosed(event: TicketClosedEvent): Promise<void> {
             subject: `Ticket Closed: ${ticket.title}`,
             template: 'ticket-closed',
             context: internalContext,
+            ticketResolutionSource: internalResolutionSource,
             replyContext: {
               ticketId: ticket.ticket_id || payload.ticketId,
               threadId: ticket.email_metadata?.threadId
@@ -4075,6 +4068,7 @@ async function handleTicketClosed(event: TicketClosedEvent): Promise<void> {
           subject: `Ticket Closed: ${ticket.title}`,
           template: 'ticket-closed',
           context: watcherContext,
+          ticketResolutionSource: isInternalWatcher ? internalResolutionSource : externalResolutionSource,
           replyContext: {
             ticketId: ticket.ticket_id || payload.ticketId,
             threadId: ticket.email_metadata?.threadId
