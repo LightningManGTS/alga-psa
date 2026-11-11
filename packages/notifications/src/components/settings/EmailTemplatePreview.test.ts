@@ -1,12 +1,11 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { replaceTemplateVariables } from './EmailTemplatePreview';
+import { annotateHtmlSource } from './emailTemplateSourceMap';
 import { getSampleDataForPreview } from '../../lib/templateSampleData';
-import { STOCK_EMAIL_PALETTE } from '@alga-psa/email/branding';
-import { getTemplateVariableToken } from './TemplateVariableReference';
-import { templateVariableRegistry } from '../../lib/templateVariables';
 
 const require = createRequire(import.meta.url);
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -20,40 +19,53 @@ function loadTemplate(relative: string, language = 'en'): { subject: string; htm
 }
 
 describe('replaceTemplateVariables #each handling', () => {
-  it('previews selectable ticket asset fields and inserts plain asset tokens', () => {
-    for (const templateName of ['ticket-closed', 'ticket-closed-client', 'ticket-closed-internal']) {
-      const variables = templateVariableRegistry[templateName].variables;
-      const array = variables.find((variable) => variable.path === 'ticket.assets')!;
-      const name = variables.find((variable) => variable.path === 'ticket.assets[].name')!;
-      expect(getTemplateVariableToken(name)).toBe('{{this.name}}');
-      expect(getTemplateVariableToken(array)).toBe('{{ticket.assets}}');
+  it('previews both documented ticket examples with their actual sample rows', () => {
+    const guide = readFileSync(path.resolve(here, '../../../../../docs/email/editing-ticket-email-html.md'), 'utf8');
+    const examples = [...guide.matchAll(/```html\r?\n([\s\S]*?)```/g)].map(match => match[1]);
+    expect(examples).toHaveLength(2);
+
+    for (const [index, source] of examples.entries()) {
+      const sample = getSampleDataForPreview('ticket-closed', source);
+      const rendered = replaceTemplateVariables(annotateHtmlSource(source), sample);
+      expect(rendered).not.toContain('{{');
+      expect(rendered).toContain(sample['ticket.title']);
+      expect(rendered).toContain(sample['ticket.materialsTotal']);
+      expect(rendered).toContain(sample['ticket.totalTimeWorked']);
+      expect(rendered).toContain(sample['ticket.totalTimeBillable']);
+      expect(rendered).toContain(sample['ticket.remainingBlockHours']);
+
+      const rows = [...rendered.matchAll(/<tbody\b[^>]*>([\s\S]*?)<\/tbody>/g)].map(match => {
+        expect(match[1].match(/<tr\b/g)).toHaveLength(1);
+        return [...match[1].matchAll(/<td\b[^>]*>([\s\S]*?)<\/td>/g)].map(cell => cell[1]);
+      });
+      const fields = (array: string, names: string[]) => names.map(name => sample[`ticket.${array}[].${name}`]);
+
+      expect(rows).toHaveLength(3);
+      expect(rows[0]).toEqual(index === 0
+        ? fields('assets', ['assetTag', 'name', 'assetType', 'manufacturer', 'model', 'serialNumber', 'status', 'location', 'relationship'])
+        : [
+            ...fields('assets', ['name', 'assetType']),
+            `${sample['ticket.assets[].manufacturer']} ${sample['ticket.assets[].model']}`,
+            sample['ticket.assets[].serialNumber'],
+          ]);
+      expect(rows[1]).toEqual(fields('materials', index === 0
+        ? ['name', 'description', 'quantity', 'rate', 'amount', 'currencyCode', 'billed']
+        : ['name', 'quantity', 'amount', 'billed']));
+      expect(rows[2]).toEqual(fields('timeEntries', index === 0
+        ? ['date', 'technician', 'worked', 'billable']
+        : ['date', 'technician', 'billable']));
     }
-    const stock = loadTemplate('tickets/ticketClosedClient.cjs');
-    const data = getSampleDataForPreview('ticket-closed-client', stock.html, stock.subject);
-    const html = replaceTemplateVariables(stock.html, data);
-    expect(html).toContain('Office Printer');
-    expect(html).toContain('Brother HL-L6200DW');
-    expect(html).toContain('SN-0042');
-    expect(html).toContain('<table');
-    expect(html).not.toContain('{{');
-    expect(html).not.toContain('AST-0042');
-    expect(replaceTemplateVariables('{{#each ticket.assets}}{{this.assetTag}}{{/each}}', data)).toBe('AST-0042');
   });
 
-  it('recolors pre-rendered table samples into the given branding palette', () => {
-    const html = '{{{ticket.timeHtml}}}{{{ticket.assetsHtml}}}';
-    const palette = { ...STOCK_EMAIL_PALETTE, dark: '#1c183e', cardBorder: '#e5e4ea', infoBoxBorder: '#e9e9ee' };
-    const stockData = getSampleDataForPreview('ticket-closed-client', html);
-    const branded = getSampleDataForPreview('ticket-closed-client', html, undefined, palette);
-
-    expect(stockData['ticket.timeHtml']).toContain(STOCK_EMAIL_PALETTE.cardBorder);
-    for (const path of ['ticket.timeHtml', 'ticket.assetsHtml']) {
-      // Header text is neutral; only the rules follow the palette.
-      expect(branded[path]).toContain('font-weight:600;color:#1f2933;');
-      expect(branded[path]).not.toContain('#1c183e');
-      expect(branded[path]).toContain('#e5e4ea');
-      expect(branded[path]).toContain('#e9e9ee');
-      expect(branded[path]).not.toContain(STOCK_EMAIL_PALETTE.cardBorder);
+  it('previews closed-ticket array columns using bare and this-qualified field names', () => {
+    const data = getSampleDataForPreview('ticket-closed', '');
+    const rendered = replaceTemplateVariables(
+      '{{#if ticket.timeEntries}}<table>{{#each ticket.timeEntries}}<tr><td>{{date}}</td><td>{{this.technician}}</td><td>{{worked}}</td><td>{{this.billable}}</td></tr>{{/each}}</table>{{/if}}',
+      data,
+    );
+    expect(rendered).not.toContain('{{');
+    for (const value of ['06/10/2025', 'Jane Smith', '1 hr 30 min', '1 hr']) {
+      expect(rendered).toContain(`<td>${value}</td>`);
     }
   });
 
@@ -76,14 +88,6 @@ describe('replaceTemplateVariables #each handling', () => {
     );
 
     expect(rendered).toBe('<li>Kickoff — May 1</li>');
-  });
-
-  it('handles a guarded asset section and hides missing optional row fields', () => {
-    const rendered = replaceTemplateVariables(
-      '{{#if ticket.assets}}<h2>Devices</h2>{{#each ticket.assets}}<div>{{name}}{{#if serialNumber}} Serial: {{serialNumber}}{{/if}}</div>{{/each}}{{/if}}',
-      { 'ticket.assets': 'sample list', 'ticket.assets[].name': 'Printer', 'ticket.assets[].serialNumber': '' },
-    );
-    expect(rendered).toBe('<h2>Devices</h2><div>Printer</div>');
   });
 
   it('leaves non-each content untouched', () => {

@@ -1,507 +1,155 @@
-import { Temporal } from '@js-temporal/polyfill';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import Handlebars from 'handlebars';
-import { countryDateFormat } from '@alga-psa/core/i18n/countryDateFormat';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Knex } from 'knex';
 
-const today = Temporal.Now.plainDateISO('UTC');
-const fixtureDay = today.subtract({ days: 7 });
-const monthStart = today.with({ day: 1 });
-const earlierWorkDay = monthStart.subtract({ months: 2 }).with({ day: 28 });
-const laterWorkDay = monthStart.subtract({ months: 1 }).with({ day: 2 });
-const atUtc = (date: Temporal.PlainDate, time: string): string => `${date.toString()}T${time}:00Z`;
-const displayDate = (date: Temporal.PlainDate): string =>
-  `${String(date.month).padStart(2, '0')}/${String(date.day).padStart(2, '0')}/${date.year}`;
-
-const runtime = vi.hoisted(() => ({
-  assets: [] as Array<Record<string, any>>,
-  materials: [] as Array<Record<string, any>>,
-  timeEntries: [] as Array<Record<string, any>>,
-  availableBlockMinutes: 0 as number,
-  tenantSettings: undefined as Record<string, any> | undefined,
+const state = vi.hoisted(() => ({
+  assets: [] as Record<string, unknown>[],
+  materials: [] as Record<string, unknown>[],
+  time: [] as Record<string, unknown>[],
+  tenant: vi.fn(),
+  joins: vi.fn(),
+  where: vi.fn(),
+  hours: vi.fn(),
 }));
-
+vi.mock('@alga-psa/shared/billingClients/hourBlockService', () => ({
+  getAvailableHourBlockMinutes: state.hours,
+}));
 vi.mock('@alga-psa/db', () => ({
-  tenantDb: () => {
-    const db = {
-      tenantJoin: (_query: unknown, _table: string, _left: string, _right: string, _opts?: unknown) => undefined,
+  tenantDb: (...args: unknown[]) => {
+    state.tenant(...args);
+    return {
+      tenantJoin: state.joins,
       table: (table: string) => {
-        const query: any = {
-          where: () => query,
-          orderBy: () => query,
-          select: () => query,
-          first: async () => null,
+        const rows = table.startsWith('asset_') ? state.assets
+          : table.startsWith('ticket_materials') ? state.materials : state.time;
+        const builder = {
+          select: () => builder,
+          where: (criteria: unknown) => { state.where(criteria); return builder; },
+          orderBy: () => Promise.resolve(rows),
         };
-        // Resolution happens on await; expose the per-table fixture then.
-        if (table === 'asset_associations as aa') return Object.assign(query, { then: (res: any) => Promise.resolve(runtime.assets).then(res) });
-        if (table === 'ticket_materials as tm') return Object.assign(query, { then: (res: any) => Promise.resolve(runtime.materials).then(res) });
-        if (table === 'time_entries as te') return Object.assign(query, { then: (res: any) => Promise.resolve(runtime.timeEntries).then(res) });
-        if (table === 'tenant_settings') return Object.assign(query, { first: async () => runtime.tenantSettings });
-        throw new Error(`Unexpected table in ticketEmailDetailBlocks test: ${table}`);
+        return builder;
       },
     };
-    return db;
   },
 }));
+import { buildTicketEmailDetailBlocks, sortTimeEntriesChronologically } from '../../../lib/notifications/ticketEmailDetailBlocks';
 
-vi.mock('@alga-psa/shared/billingClients/hourBlockService', () => ({
-  getAvailableHourBlockMinutes: vi.fn(async () => runtime.availableBlockMinutes),
-}));
+const knex = { raw: vi.fn() } as Pick<Knex, 'raw'> as Knex;
+const root = path.resolve(__dirname, '../../../../..');
+const build = () => buildTicketEmailDetailBlocks(knex, 'tenant-1', 'ticket-1', 'client-1');
 
-vi.mock('@alga-psa/core/logger', () => ({
-  default: { debug: vi.fn(), error: vi.fn(), info: vi.fn(), warn: vi.fn() },
-}));
-
-import {
-  buildTicketEmailDetailBlocks,
-  clientFacingDetailBlocks,
-  closedClientDetailBlocks,
-  DETAIL_TD_STYLE,
-  DETAIL_TH_STYLE,
-  detailTableStyles,
-  emptyTicketEmailDetailBlocks,
-  escapeHtml,
-  formatCentsAmount,
-  loadDetailBlockPalette,
-  resolveDetailBlockPalette,
-} from '../../../lib/notifications/ticketEmailDetailBlocks';
-import { STOCK_EMAIL_PALETTE } from '@alga-psa/email/branding';
-import { getAvailableHourBlockMinutes } from '@alga-psa/shared/billingClients/hourBlockService';
-import logger from '@alga-psa/core/logger';
-
-// The module calls db.raw() on the raw knex handle for the technician-name select.
-const fakeDb: any = { raw: (sql: string) => ({ sql }) };
-
-const tenantId = 'tenant-detail-blocks';
-const ticketId = 'ticket-1';
-const clientId = 'client-1';
-
-describe('escapeHtml', () => {
-  it('escapes HTML special characters', () => {
-    expect(escapeHtml(`<script>alert("x & y 'z'")</script>`)).toBe(
-      '&lt;script&gt;alert(&quot;x &amp; y &#39;z&#39;&quot;)&lt;/script&gt;',
-    );
-  });
-});
-
-describe('formatCentsAmount', () => {
-  it('formats USD cents', () => {
-    expect(formatCentsAmount(123456, 'USD')).toBe('$1,234.56');
-  });
-
-  it('formats non-USD currency codes', () => {
-    expect(formatCentsAmount(2500, 'EUR')).toBe('€25.00');
-  });
-
-  it('uses the supplied email locale for money formatting', () => {
-    expect(formatCentsAmount(123456, 'EUR', 'de-DE')).toBe('1.234,56\u00a0€');
-  });
-
-  it('logs and displays an unlabelled localized amount when the currency is missing', () => {
-    expect(formatCentsAmount(990, null, 'de')).toBe('9,90');
-    expect(formatCentsAmount(990, '  ')).toBe('9.90');
-    expect(logger.warn).toHaveBeenCalledWith(
-      expect.stringContaining('Missing or unsupported currency code'),
-      expect.any(Object),
-    );
-  });
-
-  it('logs and formats unsupported currency codes as plain numbers', () => {
-    expect(formatCentsAmount(1250, 'TOOLONG')).toBe('12.50');
-  });
-});
-
-describe('detailTableStyles', () => {
-  it('renders the documented stock styles for the stock palette', () => {
-    expect(detailTableStyles(STOCK_EMAIL_PALETTE)).toEqual({ th: DETAIL_TH_STYLE, td: DETAIL_TD_STYLE });
-  });
-});
-
-describe('resolveDetailBlockPalette', () => {
-  it('returns the stock palette when no palette has been applied', () => {
-    expect(resolveDetailBlockPalette(undefined)).toBe(STOCK_EMAIL_PALETTE);
-    expect(resolveDetailBlockPalette({ emailBranding: {} })).toBe(STOCK_EMAIL_PALETTE);
-  });
-
-  it('uses applied hex tokens and keeps stock values for invalid ones', () => {
-    const palette = resolveDetailBlockPalette({
-      emailBranding: { appliedPalette: { dark: '#0A3D62', cardBorder: 'not-a-color', infoBoxBorder: '#cce' } },
-    });
-    expect(palette.dark).toBe('#0a3d62');
-    expect(palette.cardBorder).toBe(STOCK_EMAIL_PALETTE.cardBorder);
-    expect(palette.infoBoxBorder).not.toBe(STOCK_EMAIL_PALETTE.infoBoxBorder);
-  });
-
-  it('rejects CSS tokens that could break out of a style attribute', () => {
-    const palette = resolveDetailBlockPalette({
-      emailBranding: { appliedPalette: { gradient: 'red;" onload="x', badgeBg: 'rgba(1, 2, 3, 0.5)' } },
-    });
-    expect(palette.gradient).toBe(STOCK_EMAIL_PALETTE.gradient);
-    expect(palette.badgeBg).toBe('rgba(1, 2, 3, 0.5)');
-  });
-
-  it('derives tokens from the saved brand colors and overrides when nothing has been applied', () => {
-    const palette = resolveDetailBlockPalette({
-      emailBranding: {
-        primary: '#252053',
-        secondary: '#37a862',
-        overrides: { dark: '#1C183E', cardBorder: '#e5e4ea', infoBoxBorder: '#e9e9ee', outerBg: 'nope' },
-      },
-    });
-    expect(palette.primary).toBe('#252053');
-    expect(palette.dark).toBe('#1c183e');
-    expect(palette.cardBorder).toBe('#e5e4ea');
-    expect(palette.infoBoxBorder).toBe('#e9e9ee');
-    expect(palette.outerBg).not.toBe(STOCK_EMAIL_PALETTE.outerBg);
-    expect(detailTableStyles(palette).th).toContain('border-bottom:2px solid #e5e4ea');
-    expect(detailTableStyles(palette).th).not.toContain('#1c183e');
-  });
-
-  it('prefers the applied palette over the saved colors', () => {
-    const palette = resolveDetailBlockPalette({
-      emailBranding: { primary: '#252053', appliedPalette: { dark: '#0a3d62' } },
-    });
-    expect(palette.dark).toBe('#0a3d62');
-  });
-
-  it('ignores a saved palette without a valid primary', () => {
-    expect(resolveDetailBlockPalette({ emailBranding: { primary: 'red' } })).toBe(STOCK_EMAIL_PALETTE);
-  });
-});
-
-describe('loadDetailBlockPalette', () => {
+describe('closed-ticket email detail data', () => {
   beforeEach(() => {
-    runtime.tenantSettings = undefined;
+    vi.clearAllMocks();
+    state.assets = [];
+    state.materials = [];
+    state.time = [];
+    state.hours.mockResolvedValue(765);
   });
 
-  it('falls back to stock when the tenant has no settings row', async () => {
-    await expect(loadDetailBlockPalette(fakeDb, tenantId)).resolves.toBe(STOCK_EMAIL_PALETTE);
-  });
-
-  it('reads the applied palette from tenant settings', async () => {
-    runtime.tenantSettings = { settings: { emailBranding: { appliedPalette: { dark: '#123456' } } } };
-    const palette = await loadDetailBlockPalette(fakeDb, tenantId);
-    expect(palette.dark).toBe('#123456');
-  });
-});
-
-describe('buildTicketEmailDetailBlocks', () => {
-  beforeEach(() => {
-    runtime.assets = [];
-    runtime.materials = [];
-    runtime.timeEntries = [];
-    runtime.availableBlockMinutes = 0;
-    vi.mocked(getAvailableHourBlockMinutes).mockClear();
-  });
-
-  it('throws when ticketId is missing', async () => {
-    await expect(
-      buildTicketEmailDetailBlocks(fakeDb, tenantId, '', clientId, 'UTC'),
-    ).rejects.toThrow(/ticketId is required/);
-  });
-
-  it('renders empty strings for empty blocks and zero totals', async () => {
-    const blocks = await buildTicketEmailDetailBlocks(fakeDb, tenantId, ticketId, clientId, 'UTC');
-    expect(blocks.assetsHtml).toBe('');
-    expect(blocks.assets).toEqual([]);
-    expect(blocks.materialsHtml).toBe('');
-    expect(blocks.timeHtml).toBe('');
-    expect(blocks.timeEntries).toEqual([]);
-    expect(blocks.materialsTotal).toBe('');
-    expect(blocks.totalTimeWorked).toBe('0 hrs');
-    expect(blocks.totalTimeBillable).toBe('0 hrs');
-    expect(blocks.remainingBlockHours).toBe('0 hrs');
-  });
-
-  it('skips hour-block lookup when no client is attached', async () => {
-    const blocks = await buildTicketEmailDetailBlocks(fakeDb, tenantId, ticketId, null, 'UTC');
-    expect(getAvailableHourBlockMinutes).not.toHaveBeenCalled();
-    expect(blocks.remainingBlockHours).toBe('0 hrs');
-  });
-
-  it('reports remaining block hours from live available minutes', async () => {
-    runtime.availableBlockMinutes = 150;
-    const blocks = await buildTicketEmailDetailBlocks(fakeDb, tenantId, ticketId, clientId, 'UTC');
-    expect(getAvailableHourBlockMinutes).toHaveBeenCalledWith(expect.anything(), tenantId, clientId);
-    expect(blocks.remainingBlockHours).toBe('2 hrs 30 min');
-  });
-
-  it('renders an assets table with escaped values and relationship labels', async () => {
-    runtime.assets = [
-      { asset_tag: 'AST-001', name: 'Firewall <2200>', serial_number: 'SN42', status: 'in_use', relationship_type: 'affected' },
-      { asset_tag: 'AST-002', name: null, serial_number: null, status: null, relationship_type: 'related' },
-    ];
-    const blocks = await buildTicketEmailDetailBlocks(fakeDb, tenantId, ticketId, clientId, 'UTC');
-    expect(blocks.assetsHtml).toContain('<table');
-    expect(blocks.assetsHtml).toContain('AST-001');
-    expect(blocks.assetsHtml).toContain('Firewall &lt;2200&gt;');
-    expect(blocks.assetsHtml).toContain('Affected');
-    expect(blocks.assetsHtml).toContain('Related');
-    // Null fields render as em-dash placeholders.
-    expect(blocks.assetsHtml).toContain('—');
-  });
-
-  it('styles table headers and rules with the stock palette by default', async () => {
-    runtime.assets = [{ asset_tag: 'AST-001', name: 'Laptop', serial_number: null, status: null, relationship_type: 'affected' }];
-    const blocks = await buildTicketEmailDetailBlocks(fakeDb, tenantId, ticketId, clientId, 'UTC');
-    expect(blocks.assetsHtml).toContain(`border-bottom:2px solid ${STOCK_EMAIL_PALETTE.cardBorder}`);
-    expect(blocks.assetsHtml).toContain('font-weight:600;color:#1f2933;');
-    expect(blocks.assetsHtml).not.toContain(STOCK_EMAIL_PALETTE.dark);
-    expect(blocks.assetsHtml).toContain(`border-bottom:1px solid ${STOCK_EMAIL_PALETTE.infoBoxBorder}`);
-  });
-
-  it('styles table headers and rules with the applied branding palette', async () => {
-    runtime.assets = [{ asset_tag: 'AST-001', name: 'Laptop', serial_number: null, status: null, relationship_type: 'affected' }];
-    const palette = { ...STOCK_EMAIL_PALETTE, dark: '#0a3d62', cardBorder: '#b3d4fc', infoBoxBorder: '#d6e9ff' };
-    const blocks = await buildTicketEmailDetailBlocks(
-      fakeDb, tenantId, ticketId, clientId, 'UTC', undefined, undefined, palette,
-    );
-    expect(blocks.assetsHtml).toContain('border-bottom:2px solid #b3d4fc');
-    // The palette has no text-color token, so headers stay neutral.
-    expect(blocks.assetsHtml).toContain('font-weight:600;color:#1f2933;');
-    expect(blocks.assetsHtml).not.toContain('#0a3d62');
-    expect(blocks.assetsHtml).toContain('border-bottom:1px solid #d6e9ff');
-    expect(blocks.assetsHtml).not.toContain(STOCK_EMAIL_PALETTE.dark);
-  });
-
-  it('exposes selectable asset fields without pre-escaping them', async () => {
-    runtime.assets = [
-      {
-        asset_tag: 'PRIVATE-TAG',
-        name: 'Printer <Office>',
-        asset_type: 'printer',
-        asset_type_name: 'Printer',
-        manufacturer: 'A & B',
-        model: 'Model "42"',
-        serial_number: 'SN42',
-        status: 'active',
-        location: 'Reception',
-        relationship_type: 'affected',
-      },
-      { asset_type: 'custom_device', relationship_type: 'related' },
-    ];
-    const blocks = await buildTicketEmailDetailBlocks(fakeDb, tenantId, ticketId, clientId, 'UTC');
-    expect(blocks.assets).toEqual([
-      {
-        assetTag: 'PRIVATE-TAG', name: 'Printer <Office>', assetType: 'Printer',
-        manufacturer: 'A & B', model: 'Model "42"', serialNumber: 'SN42',
-        status: 'active', location: 'Reception', relationship: 'Affected',
-      },
-      {
-        assetTag: '', name: '', assetType: 'custom_device', manufacturer: '',
-        model: '', serialNumber: '', status: '', location: '', relationship: 'Related',
-      },
-    ]);
-    const html = Handlebars.compile(
-      '{{#each ticket.assets}}<div>{{name}} / {{assetType}} / {{manufacturer}} {{model}}{{#if serialNumber}} / {{serialNumber}}{{/if}}</div>{{/each}}',
-      { strict: true },
-    )({ ticket: blocks });
-    expect(html).toContain('Printer &lt;Office&gt; / Printer / A &amp; B Model &quot;42&quot; / SN42');
-    expect(html).not.toContain('PRIVATE-TAG');
-    expect(html).toContain('<div> / custom_device /  </div>');
-    expect(Handlebars.compile('{{#each ticket.assets}}{{assetTag}}{{/each}}')({ ticket: blocks })).toBe('PRIVATE-TAG');
-  });
-
-  it('computes material amounts and total', async () => {
-    runtime.materials = [
-      { item_name: 'SSD 1TB', description: null, quantity: 2, rate: 7500, currency_code: 'USD', is_billed: false },
-      { item_name: null, description: 'Cable run " Cat6 "', quantity: '3', rate: '150', currency_code: 'USD', is_billed: true },
-    ];
-    const blocks = await buildTicketEmailDetailBlocks(fakeDb, tenantId, ticketId, clientId, 'UTC');
-    // 2 * 7500 + 3 * 150 = 15450 cents
-    expect(blocks.materialsTotal).toBe('$154.50');
-    expect(blocks.materialsHtml).toContain('SSD 1TB');
-    expect(blocks.materialsHtml).toContain('Cable run &quot; Cat6 &quot;');
-    expect(blocks.materialsHtml).toContain('$75.00'); // SSD rate
-    expect(blocks.materialsHtml).toContain('$150.00'); // SSD amount 2 * 7500 cents
-    expect(blocks.materialsHtml).toContain('$4.50'); // cable amount 3 * 150 cents
-    expect(blocks.materialsHtml).toContain('Yes');
-    expect(blocks.materialsHtml).toContain('No');
-  });
-
-  it('uses the supplied locale throughout the rendered blocks', async () => {
-    runtime.assets = [
-      { asset_tag: 'AST-001', name: 'Printer', serial_number: 'SN42', relationship_type: 'affected' },
-    ];
-    runtime.materials = [
-      { item_name: 'SSD', quantity: 2.5, rate: 7500, currency_code: 'EUR', is_billed: false },
-    ];
-    runtime.timeEntries = [
-      { entry_id: 'e1', start_time: atUtc(fixtureDay, '10:00'), end_time: atUtc(fixtureDay, '11:00'), billable_duration: 60 },
-    ];
-    const blocks = await buildTicketEmailDetailBlocks(
-      fakeDb, tenantId, ticketId, clientId, 'UTC', 'de-DE', countryDateFormat('DE'),
-    );
-    expect(blocks.assetsHtml).toContain('Seriennummer');
-    expect(blocks.assetsHtml).toContain('Betroffen');
-    expect(blocks.materialsTotal).toBe('187,50\u00a0€');
-    expect(blocks.materialsHtml).toContain('75,00\u00a0€');
-    expect(blocks.materialsHtml).toContain('2,5');
-    expect(blocks.materialsHtml).toContain('Abgerechnet');
-    expect(blocks.materialsHtml).toContain('Nein');
-    const headers = Array.from(blocks.timeHtml.matchAll(/<th\b[^>]*>(.*?)<\/th>/g), (match) => match[1]);
-    expect(headers).toEqual(['Datum', 'Techniker', 'Gearbeitet', 'Abrechenbar']);
-    const germanDate = `${String(fixtureDay.day).padStart(2, '0')}.${String(fixtureDay.month).padStart(2, '0')}.${fixtureDay.year}`;
-    expect(blocks.timeHtml).toContain(germanDate);
-    expect(blocks.timeEntries[0].worked).toBe('1 Std.');
-    expect(blocks.totalTimeWorked).toBe('1 Std.');
-  });
-
-  it.each([
-    ['en', ['Date', 'Technician', 'Worked', 'Billable']],
-    ['fr', ['Date', 'Technicien', 'Travaillé', 'Facturable']],
-    ['es', ['Fecha', 'Técnico', 'Trabajado', 'Facturable']],
-    ['de', ['Datum', 'Techniker', 'Gearbeitet', 'Abrechenbar']],
-    ['nl', ['Datum', 'Technicus', 'Gewerkt', 'Factureerbaar']],
-    ['it', ['Data', 'Tecnico', 'Lavorato', 'Fatturabile']],
-    ['pl', ['Data', 'Technik', 'Przepracowano', 'Do rozliczenia']],
-    ['pt', ['Data', 'Técnico', 'Trabalhado', 'Faturável']],
-    ['sv', ['Datum', 'Tekniker', 'Arbetstid', 'Debiterbar']],
-  ])('localizes every time-table column for %s', async (locale, expectedHeaders) => {
-    runtime.timeEntries = [
-      { entry_id: 'e1', start_time: atUtc(fixtureDay, '10:00'), end_time: atUtc(fixtureDay, '11:00'), billable_duration: 60 },
-    ];
-    const blocks = await buildTicketEmailDetailBlocks(fakeDb, tenantId, ticketId, clientId, 'UTC', locale);
-    const headers = Array.from(blocks.timeHtml.matchAll(/<th\b[^>]*>(.*?)<\/th>/g), (match) => match[1]);
-    expect(headers).toEqual(expectedHeaders);
-  });
-
-  it('keeps totals in different currencies separate', async () => {
-    runtime.materials = [
-      { item_name: 'EUR item', quantity: 2, rate: 1000, currency_code: 'EUR', is_billed: false },
-      { item_name: 'USD item', quantity: 1, rate: 500, currency_code: 'USD', is_billed: false },
-    ];
-    const blocks = await buildTicketEmailDetailBlocks(fakeDb, tenantId, ticketId, clientId, 'UTC', 'de');
-    expect(blocks.materialsTotal).toBe(
-      `${new Intl.NumberFormat('de', { style: 'currency', currency: 'EUR' }).format(20)} + ${new Intl.NumberFormat('de', { style: 'currency', currency: 'USD' }).format(5)}`,
-    );
-  });
-
-  it('redacts internal-only tables from client contexts while keeping totals', () => {
-    const internal = {
-      ...emptyTicketEmailDetailBlocks(),
-      assetsHtml: '<table>asset</table>',
-      materialsHtml: '<table>rate and billed state</table>',
-      materialsTotal: '$100.00',
-      timeHtml: '<table>technician</table>',
-      timeEntries: [{ date: 'd', technician: 't', worked: '2 hrs', billable: '1 hr' }],
-      totalTimeWorked: '2 hrs',
-      totalTimeBillable: '1 hr',
-      remainingBlockHours: '3 hrs',
-    };
-    const client = clientFacingDetailBlocks(internal);
-    expect(client).toMatchObject({
-      assetsHtml: '<table>asset</table>',
-      materialsHtml: '',
-      materialsTotal: '',
-      timeHtml: '',
-      timeEntries: [],
-      totalTimeWorked: '2 hrs',
-      totalTimeBillable: '1 hr',
-      remainingBlockHours: '3 hrs',
+  it('returns data and totals without HTML fields, locale lookups or audience filtering', async () => {
+    const data = await build();
+    expect(data).toEqual({
+      assets: [], materials: [], materialsTotal: '', timeEntries: [],
+      totalTimeWorked: '0 hrs', totalTimeBillable: '0 hrs', remainingBlockHours: '12 hrs 45 min',
     });
-    expect(internal.timeHtml).toContain('technician');
-    expect(internal.timeEntries).toHaveLength(1);
+    expect(Object.keys(data).some(key => /Html/.test(key))).toBe(false);
+    expect(state.hours).toHaveBeenCalledWith(knex, 'tenant-1', 'client-1');
   });
 
-  it('keeps the time table but removes materials from the closed-client context', () => {
-    const blocks = {
-      ...emptyTicketEmailDetailBlocks(),
-      timeHtml: '<table>technician and date</table>',
-      timeEntries: [{ date: 'd', technician: 't', worked: '1 hr', billable: '1 hr' }],
-      materialsHtml: '<table>internal rates</table>',
-      materialsTotal: '$100.00',
-    };
-
-    expect(closedClientDetailBlocks(blocks)).toMatchObject({
-      timeHtml: '<table>technician and date</table>',
-      timeEntries: [{ date: 'd', technician: 't', worked: '1 hr', billable: '1 hr' }],
-      materialsHtml: '',
-      materialsTotal: '',
+  it('preserves selectable asset fields as unescaped data', async () => {
+    state.assets = [{
+      asset_tag: 'A-1', name: '<Printer>', asset_type: 'printer', asset_type_name: 'Printer',
+      manufacturer: 'Brother', model: 'HL-L6200DW', serial_number: 'SN-1', status: 'active',
+      location: null, relationship_type: 'affected',
+    }];
+    const data = await build();
+    expect(data.assets[0]).toEqual({
+      assetTag: 'A-1', name: '<Printer>', assetType: 'Printer', manufacturer: 'Brother',
+      model: 'HL-L6200DW', serialNumber: 'SN-1', status: 'active', location: '', relationship: 'affected',
     });
-    expect(blocks.materialsHtml).toContain('internal rates');
+    expect(Handlebars.compile('{{#each assets}}{{name}}{{/each}}')(data)).toBe('&lt;Printer&gt;');
   });
 
-  it('falls back to billable minutes and an Unknown technician when data is missing', async () => {
-    const start = new Date(atUtc(fixtureDay, '10:00'));
-    const end = new Date(atUtc(fixtureDay, '11:30'));
-    runtime.timeEntries = [
-      { entry_id: 'e1', start_time: start, end_time: end, billable_duration: 90, technician_name: 'Ada Lovelace' },
-      // Null end_time falls back to billable_duration via workedMinutes().
-      { entry_id: 'e2', start_time: start, end_time: null, billable_duration: '15', technician_name: '  ' },
+  it('uses row currencies and keeps unlike currency totals separate', async () => {
+    state.materials = [
+      { item_name: 'Toner', description: 'Black', quantity: '2', rate: '4500', currency_code: 'USD', is_billed: true },
+      { item_name: null, description: 'Cable', quantity: 1, rate: 1000, currency_code: 'EUR', is_billed: false },
     ];
-    const blocks = await buildTicketEmailDetailBlocks(fakeDb, tenantId, ticketId, clientId, 'UTC');
-    expect(blocks.timeEntries.map(({ technician, worked, billable }) => ({ technician, worked, billable }))).toEqual([
-      { technician: 'Unknown', worked: '0 hrs 15 min', billable: '0 hrs 15 min' },
-      { technician: 'Ada Lovelace', worked: '1 hr 30 min', billable: '1 hr 30 min' },
-    ]);
-    // worked: 90 + 15 = 105; billable: 90 + 15 = 105
-    expect(blocks.totalTimeWorked).toBe('1 hr 45 min');
-    expect(blocks.totalTimeBillable).toBe('1 hr 45 min');
-    expect(blocks.timeHtml).toContain('Ada Lovelace');
-    expect(blocks.timeHtml).toContain('Unknown');
-    expect(blocks.timeHtml).toContain(displayDate(fixtureDay));
+    const data = await build();
+    expect(data.materials[0]).toMatchObject({ name: 'Toner', quantity: 2, rate: '$45.00', amount: '$90.00', billed: true });
+    expect(data.materials[1]).toMatchObject({ name: 'Cable', currencyCode: 'EUR', billed: false });
+    expect(data.materialsTotal).toBe('$90.00 + €10.00');
   });
 
-  it('renders time entries chronologically with date-first columns', async () => {
-    runtime.timeEntries = [
-      { entry_id: 'e4', start_time: atUtc(laterWorkDay, '09:00'), end_time: atUtc(laterWorkDay, '12:00'), billable_duration: 180, technician_name: 'Ada Lovelace' },
-      { entry_id: 'e3', start_time: atUtc(earlierWorkDay, '16:00'), end_time: atUtc(earlierWorkDay, '17:00'), billable_duration: 60, technician_name: 'Ada Lovelace' },
-      { entry_id: 'e2', start_time: atUtc(earlierWorkDay, '13:00'), end_time: atUtc(earlierWorkDay, '15:00'), billable_duration: 120, technician_name: 'Grace Hopper' },
-      { entry_id: 'e1', start_time: atUtc(earlierWorkDay, '10:00'), end_time: atUtc(earlierWorkDay, '12:00'), billable_duration: 120, technician_name: 'Ada Lovelace' },
-    ];
-
-    const blocks = await buildTicketEmailDetailBlocks(fakeDb, tenantId, ticketId, clientId, 'UTC');
-    const headerRow = blocks.timeHtml.match(/<thead><tr>(.*?)<\/tr><\/thead>/)?.[1] ?? '';
-    const headers = Array.from(headerRow.matchAll(/<th[^>]*>(.*?)<\/th>/g), (match) => match[1]);
-    expect(headers).toEqual(['Date', 'Technician', 'Worked', 'Billable']);
-
-    const body = blocks.timeHtml.match(/<tbody>(.*?)<\/tbody>/)?.[1] ?? '';
-    const rows = Array.from(body.matchAll(/<tr>(.*?)<\/tr>/g), (row) =>
-      Array.from(row[1].matchAll(/<td[^>]*>(.*?)<\/td>/g), (cell) => cell[1]),
-    );
-    expect(rows).toEqual([
-      [displayDate(earlierWorkDay), 'Ada Lovelace', '2 hrs', '2 hrs'],
-      [displayDate(earlierWorkDay), 'Grace Hopper', '2 hrs', '2 hrs'],
-      [displayDate(earlierWorkDay), 'Ada Lovelace', '1 hr', '1 hr'],
-      [displayDate(laterWorkDay), 'Ada Lovelace', '3 hrs', '3 hrs'],
-    ]);
-    expect(blocks.timeEntries).toEqual([
-      { date: displayDate(earlierWorkDay), technician: 'Ada Lovelace', worked: '2 hrs', billable: '2 hrs' },
-      { date: displayDate(earlierWorkDay), technician: 'Grace Hopper', worked: '2 hrs', billable: '2 hrs' },
-      { date: displayDate(earlierWorkDay), technician: 'Ada Lovelace', worked: '1 hr', billable: '1 hr' },
-      { date: displayDate(laterWorkDay), technician: 'Ada Lovelace', worked: '3 hrs', billable: '3 hrs' },
-    ]);
+  it('rejects invalid material currency and propagates lookup failures', async () => {
+    state.materials = [{ item_name: 'Toner', quantity: 1, rate: 1000, currency_code: 'BAD' }];
+    await expect(build()).rejects.toThrow('unsupported material currency');
+    state.materials = [];
+    state.hours.mockRejectedValueOnce(new Error('Hour-block database unavailable'));
+    await expect(build()).rejects.toThrow('Hour-block database unavailable');
   });
 
-  it('exposes plain-text time entries that Handlebars escapes for text bodies', async () => {
-    runtime.timeEntries = [
-      { entry_id: 'e1', start_time: atUtc(fixtureDay, '10:00'), end_time: atUtc(fixtureDay, '11:00'), billable_duration: 0, technician_name: 'Ada <Ops>' },
+  it('renders the old time-table columns from individual chronological array rows', async () => {
+    state.time = [
+      { entry_id: '3', start_time: '2025-06-11T09:00:00Z', end_time: '2025-06-11T09:30:00Z', billable_duration: 0, technician_name: 'Jane Smith' },
+      { entry_id: '2', start_time: '2025-06-10T09:00:00Z', end_time: '2025-06-10T10:00:00Z', billable_duration: 45, technician_name: '<Alex>' },
+      { entry_id: '1', start_time: '2025-06-09T09:00:00Z', end_time: '2025-06-09T10:30:00Z', billable_duration: 90, technician_name: 'Jane Smith' },
     ];
-    const blocks = await buildTicketEmailDetailBlocks(fakeDb, tenantId, ticketId, clientId, 'UTC');
-    expect(blocks.timeEntries).toEqual([
-      { date: displayDate(fixtureDay), technician: 'Ada <Ops>', worked: '1 hr', billable: '0 hrs' },
+    const data = await build();
+    expect(data.timeEntries).toEqual([
+      { date: '06/09/2025', technician: 'Jane Smith', worked: '1 hr 30 min', billable: '1 hr 30 min' },
+      { date: '06/10/2025', technician: '<Alex>', worked: '1 hr', billable: '0 hrs 45 min' },
+      { date: '06/11/2025', technician: 'Jane Smith', worked: '0 hrs 30 min', billable: '0 hrs' },
     ]);
-    expect(blocks.timeHtml).toContain('Ada &lt;Ops&gt;');
-    const text = Handlebars.compile(
-      '{{#each ticket.timeEntries}}{{date}} · {{technician}} · {{worked}} · {{billable}}\n{{/each}}',
-      { strict: true },
-    )({ ticket: blocks });
-    expect(text).toBe(`${displayDate(fixtureDay)} · Ada &lt;Ops&gt; · 1 hr · 0 hrs\n`);
+    expect(data.totalTimeWorked).toBe('3 hrs');
+    expect(data.totalTimeBillable).toBe('2 hrs 15 min');
+    const guide = readFileSync(path.join(root, 'docs/email/editing-ticket-email-html.md'), 'utf8');
+    const example = guide.match(/```html\r?\n([\s\S]*?)```/)?.[1];
+    expect(example).toBeDefined();
+    const source = example!.match(/\{\{#if ticket\.timeEntries\}\}[\s\S]*?\{\{\/if\}\}/)?.[0];
+    expect(source).toBeDefined();
+    const render = Handlebars.compile(source!, { strict: true });
+    const html = render({ ticket: data });
+    expect(html.match(/<td /g)).toHaveLength(12);
+    for (const column of ['Date', 'Technician', 'Worked', 'Billable']) expect(html).toContain(`>${column}</th>`);
+    expect(html).toContain('&lt;Alex&gt;');
+    expect(html.indexOf('06/09/2025')).toBeLessThan(html.indexOf('06/10/2025'));
+    expect(html.indexOf('06/10/2025')).toBeLessThan(html.indexOf('06/11/2025'));
+    expect(render({ ticket: { ...data, timeEntries: [] } })).not.toContain('<table');
   });
 
-  it('computes worked minutes distinct from billable when entry spans differ', async () => {
-    runtime.timeEntries = [
-      {
-        entry_id: 'e1',
-        start_time: atUtc(fixtureDay, '10:00'),
-        end_time: atUtc(fixtureDay, '12:00'),
-        billable_duration: 45,
-        technician_name: 'Grace Hopper',
-      },
-    ];
-    const blocks = await buildTicketEmailDetailBlocks(fakeDb, tenantId, ticketId, clientId, 'UTC');
-    expect(blocks.timeEntries[0]).toMatchObject({ worked: '2 hrs', billable: '0 hrs 45 min' });
-    expect(blocks.totalTimeWorked).toBe('2 hrs');
-    expect(blocks.totalTimeBillable).toBe('0 hrs 45 min');
+  it('uses the existing effective timezone for the work date', async () => {
+    state.time = [{ entry_id: '1', start_time: '2025-06-10T01:00:00Z', end_time: '2025-06-10T02:00:00Z', billable_duration: null, technician_name: null }];
+    const data = await buildTicketEmailDetailBlocks(knex, 'tenant-1', 'ticket-1', null, 'America/New_York');
+    expect(data.timeEntries[0].date).toBe('06/09/2025');
+    expect(data.remainingBlockHours).toBe('0 hrs');
+    expect(state.hours).not.toHaveBeenCalled();
+  });
+
+  it('keeps sorting deterministic without mutating input', () => {
+    const rows = ['B', 'A'].map(name => ({
+      entry_id: name, technician_name: name, start_time: '2025-06-10T09:00:00Z',
+      end_time: null, billable_duration: 0,
+    }));
+    expect(sortTimeEntriesChronologically(rows).map(row => row.entry_id)).toEqual(['A', 'B']);
+    expect(rows[0].entry_id).toBe('B');
+  });
+
+  it('scopes every query and join and wires details only into closed notifications', async () => {
+    await build();
+    expect(state.tenant).toHaveBeenCalledTimes(3);
+    for (const call of state.tenant.mock.calls) expect(call).toEqual([knex, 'tenant-1']);
+    expect(state.joins.mock.calls.map(call => call[1])).toEqual(['assets as a', 'asset_type_registry as atr', 'service_catalog as sc', 'users as u']);
+    expect(state.where).toHaveBeenCalledWith({ 'te.work_item_id': 'ticket-1', 'te.work_item_type': 'ticket' });
+    const source = readFileSync(path.join(root, 'server/src/lib/eventBus/subscribers/ticketEmailSubscriber.ts'), 'utf8');
+    const beforeClosed = source.slice(0, source.indexOf('async function handleTicketClosed('));
+    expect(beforeClosed.match(/await buildTicketEmailDetailBlocks/g)).toBeNull();
+    expect(source.match(/await buildTicketEmailDetailBlocks/g)).toHaveLength(2);
+    expect(source).toContain('db, tenantId, child.ticket_id, child.client_id, emailTimeZone');
+    expect(source).not.toContain("template: 'ticket-closed-client'");
+    expect(source).not.toContain("template: 'ticket-closed-internal'");
   });
 });

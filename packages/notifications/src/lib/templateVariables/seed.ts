@@ -1019,6 +1019,14 @@ export const templateVariableSeed: TemplateVariableSeedCategory[] = [
             "notes": "Built from NEXTAUTH_URL or NEXT_PUBLIC_APP_URL at send time; wrapped in {{#if portalLink}}."
           },
           {
+            "path": "quoteReviewLink",
+            "type": "url",
+            "description": "Per-recipient link to review and approve the quote without signing in; empty when the tenant has turned email-link review off.",
+            "example": "https://app.example.com/quote/Qm9n0xv3kP2s5Yh8TqLw1AaBcDeFgHiJkLmNoPqRsTu",
+            "availability": "used",
+            "notes": "Unique to each recipient. When present it is the primary call-to-action and portalLink becomes a secondary link shown only to recipients with client-portal access; wrapped in {{#if quoteReviewLink}}."
+          },
+          {
             "path": "customMessage",
             "type": "string",
             "description": "Optional free-text note from the MSP shown in a highlighted box; the box is hidden when empty.",
@@ -1070,6 +1078,14 @@ export const templateVariableSeed: TemplateVariableSeedCategory[] = [
             "example": "https://app.example.com/client-portal/billing?tab=quotes",
             "availability": "used",
             "notes": "Built from NEXTAUTH_URL or NEXT_PUBLIC_APP_URL at send time; wrapped in {{#if portalLink}}."
+          },
+          {
+            "path": "quoteReviewLink",
+            "type": "url",
+            "description": "Per-recipient link to review and approve the quote without signing in; empty when the tenant has turned email-link review off.",
+            "example": "https://app.example.com/quote/Qm9n0xv3kP2s5Yh8TqLw1AaBcDeFgHiJkLmNoPqRsTu",
+            "availability": "used",
+            "notes": "Unique to each recipient. When present it is the primary call-to-action and portalLink becomes a secondary link shown only to recipients with client-portal access; wrapped in {{#if quoteReviewLink}}."
           },
           {
             "path": "customMessage",
@@ -2654,23 +2670,17 @@ export const templateVariableSeed: TemplateVariableSeedCategory[] = [
           {
             "path": "ticket.description",
             "type": "string",
-            "description": "Legacy plain description field; the template uses descriptionHtml in HTML and descriptionText in plain text.",
+            "description": "Ticket description body (HTML-rendered via {{{ }}} in en/pt; plain {{ }} in fr/es/de/nl/it); falls back to 'No description provided.'.",
             "example": "Toner is jammed and red error light is on.",
-            "availability": "available-unused"
+            "availability": "used"
           },
           {
-            "path": "ticket.descriptionText",
+            "path": "ticket.summary",
             "type": "string",
-            "description": "Sanitized plain-text description used by the plain-text email body.",
-            "example": "Toner is jammed and red error light is on.",
-            "availability": "used"
-          },
-          {
-            "path": "ticket.descriptionHtml",
-            "type": "raw-html",
-            "description": "Sanitized rich-text description used by the HTML email body.",
-            "example": "<p>Toner is jammed…</p>",
-            "availability": "used"
+            "description": "pl-only description-box variable: the Polish translation's descriptionVar renders {{ticket.summary}} instead of ticket.description.",
+            "example": "",
+            "availability": "used",
+            "notes": "Referenced ONLY in the pl translation; NOT assembled in sendTicketAssignedNotifications, so it renders empty for Polish recipients."
           },
           {
             "path": "ticket.url",
@@ -2938,813 +2948,191 @@ export const templateVariableSeed: TemplateVariableSeedCategory[] = [
           {
             "path": "ticket.assets",
             "type": "array",
-            "description": "Ticket Closed only (client and internal emails): linked assets with individually selectable fields. Use {{#each ticket.assets}} to control the HTML or plain-text layout; include only the fields you want.",
-            "example": "<table style=\"border-collapse:collapse;width:100%;margin:0;font-size:13px;\"><thead><tr><th style=\"text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#1f2933;white-space:nowrap;\">Name</th><th style=\"text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#1f2933;white-space:nowrap;\">Type</th><th style=\"text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#1f2933;white-space:nowrap;\">Manufacturer / Model</th><th style=\"text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#1f2933;white-space:nowrap;\">Serial #</th></tr></thead><tbody>{{#each ticket.assets}}<tr><td style=\"padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;\">{{name}}</td><td style=\"padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;\">{{assetType}}</td><td style=\"padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;\">{{manufacturer}} {{model}}</td><td style=\"padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;\">{{serialNumber}}</td></tr>{{/each}}</tbody></table>",
-            "availability": "available-unused",
-            "notes": "Added 2026-10-30. All fields are optional in your markup, including assetTag. Inside the row loop use {{assetTag}}, {{name}}, {{assetType}}, {{manufacturer}}, {{model}}, {{serialNumber}}, {{status}}, {{location}}, or {{relationship}}. Use double braces to escape asset values safely. Empty list when no assets are linked. The editable table example deliberately omits assetTag, status, location, and relationship. To add or omit a column, change both its header th and its row td; retain empty cells for missing values so columns stay aligned. ticket.assetsHtml remains the fixed-layout alternative."
+            "description": "Linked assets. Iterate to choose columns; values are plain data, not HTML.",
+            "example": "{{#each ticket.assets}}{{name}}{{/each}}",
+            "availability": "available-unused"
           },
           {
             "path": "ticket.assets[].assetTag",
             "type": "string",
-            "description": "Asset tag. Optional: include {{assetTag}} inside {{#each ticket.assets}}, or leave it out.",
+            "description": "Linked asset assetTag.",
             "example": "AST-0042",
             "availability": "available-unused"
           },
           {
             "path": "ticket.assets[].name",
             "type": "string",
-            "description": "Asset name. Use {{name}} inside {{#each ticket.assets}}.",
+            "description": "Linked asset name.",
             "example": "Office Printer",
             "availability": "available-unused"
           },
           {
             "path": "ticket.assets[].assetType",
             "type": "string",
-            "description": "Asset type display name (or stored type slug if no registry entry exists). Use {{assetType}} inside {{#each ticket.assets}}.",
+            "description": "Linked asset assetType.",
             "example": "Printer",
             "availability": "available-unused"
           },
           {
             "path": "ticket.assets[].manufacturer",
             "type": "string",
-            "description": "Manufacturer. Use {{manufacturer}} inside {{#each ticket.assets}}; empty when not recorded.",
+            "description": "Linked asset manufacturer.",
             "example": "Brother",
             "availability": "available-unused"
           },
           {
             "path": "ticket.assets[].model",
             "type": "string",
-            "description": "Model. Use {{model}} inside {{#each ticket.assets}}; empty when not recorded.",
+            "description": "Linked asset model.",
             "example": "HL-L6200DW",
             "availability": "available-unused"
           },
           {
             "path": "ticket.assets[].serialNumber",
             "type": "string",
-            "description": "Serial number. Use {{serialNumber}} inside {{#each ticket.assets}}; empty when not recorded.",
+            "description": "Linked asset serialNumber.",
             "example": "SN-0042",
             "availability": "available-unused"
           },
           {
             "path": "ticket.assets[].status",
             "type": "string",
-            "description": "Stored asset status. Use {{status}} inside {{#each ticket.assets}}.",
+            "description": "Linked asset status.",
             "example": "active",
             "availability": "available-unused"
           },
           {
             "path": "ticket.assets[].location",
             "type": "string",
-            "description": "Asset location. Use {{location}} inside {{#each ticket.assets}}; empty when not recorded.",
-            "example": "Main Office",
+            "description": "Linked asset location.",
+            "example": "Front office",
             "availability": "available-unused"
           },
           {
             "path": "ticket.assets[].relationship",
             "type": "string",
-            "description": "Ticket relationship label (Affected or Related). Use {{relationship}} inside {{#each ticket.assets}}.",
-            "example": "Affected",
+            "description": "Linked asset relationship.",
+            "example": "affected",
             "availability": "available-unused"
           },
           {
-            "path": "ticket.assetsHtml",
-            "type": "raw-html",
-            "description": "Ticket Closed only (client and internal emails): pre-rendered asset table (Asset Tag, Name, Serial #, Status, Relationship). For adjustable fields, use {{#each ticket.assets}} instead. Empty string when no assets are linked; guard with {{#if ticket.assetsHtml}}.",
-            "example": "<table style=\"border-collapse:collapse;width:100%;margin:0;font-size:13px;\"><thead><tr><th style=\"text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#1f2933;white-space:nowrap;\">Asset Tag</th><th style=\"text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#1f2933;white-space:nowrap;\">Name</th><th style=\"text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#1f2933;white-space:nowrap;\">Serial #</th><th style=\"text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#1f2933;white-space:nowrap;\">Status</th><th style=\"text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#1f2933;white-space:nowrap;\">Relationship</th></tr></thead><tbody><tr><td style=\"padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;\">AST-0042</td><td style=\"padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;\">Office Printer</td><td style=\"padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;\">SN-0042</td><td style=\"padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;\">active</td><td style=\"padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;\">Affected</td></tr></tbody></table>",
+            "path": "ticket.materials",
+            "type": "array",
+            "description": "Material rows with quantity, currency-formatted rate and amount, and billed state.",
+            "example": "{{#each ticket.materials}}{{name}}: {{quantity}} × {{rate}} = {{amount}}{{/each}}",
             "availability": "available-unused"
           },
           {
-            "path": "ticket.materialsHtml",
-            "type": "raw-html",
-            "description": "Ticket Closed only (client and internal emails): pre-rendered materials/services table (Item, Qty, Rate, Amount, Billed). Empty string when none; guard with {{#if ticket.materialsHtml}}.",
-            "example": "<table style=\"border-collapse:collapse;width:100%;margin:0;font-size:13px;\"><thead><tr><th style=\"text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#1f2933;white-space:nowrap;\">Item</th><th style=\"text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#1f2933;white-space:nowrap;\">Qty</th><th style=\"text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#1f2933;white-space:nowrap;\">Rate</th><th style=\"text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#1f2933;white-space:nowrap;\">Amount</th><th style=\"text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#1f2933;white-space:nowrap;\">Billed</th></tr></thead><tbody><tr><td style=\"padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;\">Toner cartridge</td><td style=\"padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;\">1</td><td style=\"padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;\">145.00 USD</td><td style=\"padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;\">145.00 USD</td><td style=\"padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;\">No</td></tr></tbody></table>",
+            "path": "ticket.materials[].name",
+            "type": "string",
+            "description": "Material name.",
+            "example": "Toner cartridge",
+            "availability": "available-unused"
+          },
+          {
+            "path": "ticket.materials[].description",
+            "type": "string",
+            "description": "Material description.",
+            "example": "Replacement toner",
+            "availability": "available-unused"
+          },
+          {
+            "path": "ticket.materials[].quantity",
+            "type": "number",
+            "description": "Material quantity.",
+            "example": "2",
+            "availability": "available-unused"
+          },
+          {
+            "path": "ticket.materials[].rate",
+            "type": "string",
+            "description": "Material rate.",
+            "example": "USD 45.00",
+            "availability": "available-unused"
+          },
+          {
+            "path": "ticket.materials[].amount",
+            "type": "string",
+            "description": "Material amount.",
+            "example": "USD 90.00",
+            "availability": "available-unused"
+          },
+          {
+            "path": "ticket.materials[].currencyCode",
+            "type": "string",
+            "description": "Material currencyCode.",
+            "example": "USD",
+            "availability": "available-unused"
+          },
+          {
+            "path": "ticket.materials[].billed",
+            "type": "boolean",
+            "description": "Material billed.",
+            "example": "true",
             "availability": "available-unused"
           },
           {
             "path": "ticket.materialsTotal",
             "type": "string",
-            "description": "Ticket Closed only (client and internal emails): currency-formatted total of all material line amounts, using the tenant email locale and material currency; zero when there are no materials.",
-            "example": "145.00 USD",
-            "availability": "available-unused"
-          },
-          {
-            "path": "ticket.totalTimeWorked",
-            "type": "string",
-            "description": "Ticket Closed only (client and internal emails): total time worked across all ticket time entries (end-start interval), formatted like '3 hrs 30 min'.",
-            "example": "3 hrs 30 min",
-            "availability": "used"
-          },
-          {
-            "path": "ticket.totalTimeBillable",
-            "type": "string",
-            "description": "Ticket Closed only (client and internal emails): total recorded billable time, including time not yet invoiced (0 for non-billable entries), formatted like '2 hrs 15 min'.",
-            "example": "2 hrs 15 min",
-            "availability": "used"
-          },
-          {
-            "path": "ticket.timeHtml",
-            "type": "raw-html",
-            "description": "Ticket Closed only (client and internal emails): localized time-entry table (Date, Technician, Worked, Billable), oldest first by entry date so back-dated and multi-technician entries read as a timeline. Dates use the tenant email locale/date format. Empty string when none; guard with {{#if ticket.timeHtml}}.",
-            "example": "<table style=\"border-collapse:collapse;width:100%;margin:0;font-size:13px;\"><thead><tr><th style=\"text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#1f2933;white-space:nowrap;\">Date</th><th style=\"text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#1f2933;white-space:nowrap;\">Technician</th><th style=\"text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#1f2933;white-space:nowrap;\">Worked</th><th style=\"text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#1f2933;white-space:nowrap;\">Billable</th></tr></thead><tbody><tr><td style=\"padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;\">10/30/2026</td><td style=\"padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;\">Jane Smith</td><td style=\"padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;\">2 hrs</td><td style=\"padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;\">2 hrs</td></tr><tr><td style=\"padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;\">11/02/2026</td><td style=\"padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;\">Jane Smith</td><td style=\"padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;\">3 hrs</td><td style=\"padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;\">0 min</td></tr></tbody></table>",
+            "description": "Material totals, kept separate by currency when necessary.",
+            "example": "USD 90.00",
             "availability": "available-unused"
           },
           {
             "path": "ticket.timeEntries",
             "type": "array",
-            "description": "Ticket Closed only (client and internal emails): plain-text rows behind ticket.timeHtml, same order and formatting. Use {{#each ticket.timeEntries}} in text bodies.",
-            "example": "[{\"date\":\"10/30/2026\",\"technician\":\"Jane Smith\",\"worked\":\"2 hrs\",\"billable\":\"2 hrs\"}]",
+            "description": "Individual time entries, oldest first. Date, technician, worked and billable can be laid out as an editable table.",
+            "example": "{{#each ticket.timeEntries}}{{date}} | {{technician}} | {{worked}} | {{billable}}{{/each}}",
             "availability": "available-unused"
           },
           {
             "path": "ticket.timeEntries[].date",
             "type": "string",
-            "description": "Entry date in the tenant email locale/date format. Use {{date}} inside {{#each ticket.timeEntries}}.",
-            "example": "10/30/2026",
+            "description": "Time entry date.",
+            "example": "06/10/2025",
             "availability": "available-unused"
           },
           {
             "path": "ticket.timeEntries[].technician",
             "type": "string",
-            "description": "Technician who logged the entry. Use {{technician}} inside {{#each ticket.timeEntries}}.",
+            "description": "Time entry technician.",
             "example": "Jane Smith",
             "availability": "available-unused"
           },
           {
             "path": "ticket.timeEntries[].worked",
             "type": "string",
-            "description": "Time worked for the entry, formatted like '2 hrs'. Use {{worked}} inside {{#each ticket.timeEntries}}.",
-            "example": "2 hrs",
+            "description": "Time entry worked.",
+            "example": "1 hr 30 min",
             "availability": "available-unused"
           },
           {
             "path": "ticket.timeEntries[].billable",
             "type": "string",
-            "description": "Billable time for the entry (0 min when non-billable). Use {{billable}} inside {{#each ticket.timeEntries}}.",
-            "example": "2 hrs",
-            "availability": "available-unused"
-          },
-          {
-            "path": "ticket.remainingBlockHours",
-            "type": "string",
-            "description": "Ticket Closed only (client and internal emails): client's remaining prepaid hour-block balance at send time (active, non-expired blocks; already-allocated even time deducted), formatted like '12 hrs 45 min'. '0 hrs' when the client has no blocks.",
-            "example": "12 hrs 45 min",
-            "availability": "available-unused"
-          }
-        ]
-      },
-      {
-        "templateName": "ticket-closed-client",
-        "variables": [
-          {
-            "path": "ticket.title",
-            "type": "string",
-            "description": "The ticket's subject/title line.",
-            "example": "Printer not working on 3rd floor",
-            "availability": "used"
-          },
-          {
-            "path": "ticket.metaLine",
-            "type": "string",
-            "description": "One-line ticket#/priority/status summary shown under the header and in text.",
-            "example": "Ticket #TCK-1234 · High Priority · Closed",
-            "availability": "available-unused"
-          },
-          {
-            "path": "ticket.id",
-            "type": "string",
-            "description": "Human-readable ticket number on the 'Ticket #' badge.",
-            "example": "TCK-1234",
-            "availability": "used"
-          },
-          {
-            "path": "ticket.clientName",
-            "type": "string",
-            "description": "Client/company the ticket belongs to; shown in the intro.",
-            "example": "Acme Corporation",
-            "availability": "used"
-          },
-          {
-            "path": "ticket.closedBy",
-            "type": "string",
-            "description": "Full name of the user who closed the ticket (or 'System').",
-            "example": "John Doe",
-            "availability": "used"
-          },
-          {
-            "path": "ticket.status",
-            "type": "string",
-            "description": "Current status name; used in the pl plain-text 'Closed status' line (other locales show a static 'Closed' label).",
-            "example": "Closed",
-            "availability": "available-unused"
-          },
-          {
-            "path": "ticket.priority",
-            "type": "string",
-            "description": "Priority level name; rendered only in the pl priority row.",
-            "example": "High",
-            "availability": "used"
-          },
-          {
-            "path": "ticket.priorityColor",
-            "type": "string",
-            "description": "Hex color for the priority badge; rendered only in the pl priority row.",
-            "example": "#dc2626",
-            "availability": "available-unused"
-          },
-          {
-            "path": "ticket.assignedToName",
-            "type": "string",
-            "description": "Full name of the assigned agent.",
-            "example": "Jane Smith",
-            "availability": "used"
-          },
-          {
-            "path": "ticket.assignedToEmail",
-            "type": "string",
-            "description": "Email of the assigned agent (or 'Not assigned'/'Not provided').",
-            "example": "jane.smith@example.com",
-            "availability": "used"
-          },
-          {
-            "path": "ticket.assignedDetails",
-            "type": "string",
-            "description": "Assigned agent name with email, for plain text.",
-            "example": "Jane Smith (jane.smith@example.com)",
-            "availability": "used"
-          },
-          {
-            "path": "ticket.requesterName",
-            "type": "string",
-            "description": "Name of the requesting contact.",
-            "example": "John Doe",
-            "availability": "used"
-          },
-          {
-            "path": "ticket.requesterContact",
-            "type": "string",
-            "description": "Requester email and phone joined for the HTML contact block.",
-            "example": "john.doe@acme.com · +1 (555) 010-1234",
-            "availability": "used"
-          },
-          {
-            "path": "ticket.requesterDetails",
-            "type": "string",
-            "description": "Requester name/email/phone joined for plain text.",
-            "example": "John Doe · john.doe@acme.com · +1 (555) 010-1234",
-            "availability": "used"
-          },
-          {
-            "path": "ticket.board",
-            "type": "string",
-            "description": "Board/queue the ticket lives on.",
-            "example": "Help Desk",
-            "availability": "available-unused"
-          },
-          {
-            "path": "ticket.categoryDetails",
-            "type": "string",
-            "description": "Category / subcategory combined.",
-            "example": "Hardware / Printer",
-            "availability": "used"
-          },
-          {
-            "path": "ticket.locationSummary",
-            "type": "string",
-            "description": "Client site name and address.",
-            "example": "Acme HQ • 100 Main St, Springfield, IL 62701 US",
-            "availability": "used"
-          },
-          {
-            "path": "ticket.resolution",
-            "type": "string",
-            "description": "HTML of the resolution comment shown in the 'Resolution' box (rendered via {{{ }}}).",
-            "example": "<p>Replaced printer toner cartridge.</p>",
-            "availability": "used"
-          },
-          {
-            "path": "ticket.url",
-            "type": "string",
-            "description": "Deep link to the ticket: portal for clients and MSP for internal recipients.",
-            "example": "https://app.example.com/msp/tickets/sample-ticket-id",
-            "availability": "available-unused"
-          },
-          {
-            "path": "ticket.description",
-            "type": "string",
-            "description": "Ticket description body; assembled into the closed context but not referenced by this template.",
-            "example": "Toner is jammed and red error light is on.",
-            "availability": "available-unused"
-          },
-          {
-            "path": "ticket.changes",
-            "type": "string",
-            "description": "Rendered HTML change list; assembled (from payload.changes) but not referenced by ticket-closed.",
-            "example": "<ul>…</ul>",
-            "availability": "available-unused"
-          },
-          {
-            "path": "ticket.requesterEmail",
-            "type": "string",
-            "description": "Requester email in isolation; assembled but unused.",
-            "example": "john.doe@acme.com",
-            "availability": "available-unused"
-          },
-          {
-            "path": "ticket.requesterPhone",
-            "type": "string",
-            "description": "Requester phone in isolation; assembled but unused.",
-            "example": "+1 (555) 010-1234",
-            "availability": "available-unused"
-          },
-          {
-            "path": "ticket.category",
-            "type": "string",
-            "description": "Individual category value; the stock template uses ticket.categoryDetails.",
-            "example": "Hardware",
-            "availability": "available-unused"
-          },
-          {
-            "path": "ticket.subcategory",
-            "type": "string",
-            "description": "Individual category value; the stock template uses ticket.categoryDetails.",
-            "example": "Printer",
-            "availability": "available-unused"
-          },
-          {
-            "path": "ticket.assets",
-            "type": "array",
-            "description": "Linked assets. Use {{#each ticket.assets}} to choose fields and author your own layout.",
-            "example": "{{ticket.assets}}",
-            "availability": "used",
-            "notes": "The variable card inserts only the token. Use an each block with the asset fields to render rows; see the ticket email editing guide."
-          },
-          {
-            "path": "ticket.assets[].assetTag",
-            "type": "string",
-            "description": "Asset tag. Optional: include {{assetTag}} inside {{#each ticket.assets}}, or leave it out.",
-            "example": "AST-0042",
-            "availability": "available-unused"
-          },
-          {
-            "path": "ticket.assets[].name",
-            "type": "string",
-            "description": "Asset name. Use {{name}} inside {{#each ticket.assets}}.",
-            "example": "Office Printer",
-            "availability": "used"
-          },
-          {
-            "path": "ticket.assets[].assetType",
-            "type": "string",
-            "description": "Asset type display name (or stored type slug if no registry entry exists). Use {{assetType}} inside {{#each ticket.assets}}.",
-            "example": "Printer",
-            "availability": "used"
-          },
-          {
-            "path": "ticket.assets[].manufacturer",
-            "type": "string",
-            "description": "Manufacturer. Use {{manufacturer}} inside {{#each ticket.assets}}; empty when not recorded.",
-            "example": "Brother",
-            "availability": "used"
-          },
-          {
-            "path": "ticket.assets[].model",
-            "type": "string",
-            "description": "Model. Use {{model}} inside {{#each ticket.assets}}; empty when not recorded.",
-            "example": "HL-L6200DW",
-            "availability": "used"
-          },
-          {
-            "path": "ticket.assets[].serialNumber",
-            "type": "string",
-            "description": "Serial number. Use {{serialNumber}} inside {{#each ticket.assets}}; empty when not recorded.",
-            "example": "SN-0042",
-            "availability": "used"
-          },
-          {
-            "path": "ticket.assets[].status",
-            "type": "string",
-            "description": "Stored asset status. Use {{status}} inside {{#each ticket.assets}}.",
-            "example": "active",
-            "availability": "available-unused"
-          },
-          {
-            "path": "ticket.assets[].location",
-            "type": "string",
-            "description": "Asset location. Use {{location}} inside {{#each ticket.assets}}; empty when not recorded.",
-            "example": "Main Office",
-            "availability": "available-unused"
-          },
-          {
-            "path": "ticket.assets[].relationship",
-            "type": "string",
-            "description": "Ticket relationship label (Affected or Related). Use {{relationship}} inside {{#each ticket.assets}}.",
-            "example": "Affected",
-            "availability": "available-unused"
-          },
-          {
-            "path": "ticket.assetsHtml",
-            "type": "raw-html",
-            "description": "Localized fixed-layout asset table. Use {{#each ticket.assets}} for editable markup; empty when no assets are linked.",
-            "example": "<table style=\"border-collapse:collapse;width:100%;margin:0;font-size:13px;\"><thead><tr><th style=\"text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#1f2933;white-space:nowrap;\">Asset Tag</th><th style=\"text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#1f2933;white-space:nowrap;\">Name</th><th style=\"text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#1f2933;white-space:nowrap;\">Serial #</th><th style=\"text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#1f2933;white-space:nowrap;\">Status</th><th style=\"text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#1f2933;white-space:nowrap;\">Relationship</th></tr></thead><tbody><tr><td style=\"padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;\">AST-0042</td><td style=\"padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;\">Office Printer</td><td style=\"padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;\">SN-0042</td><td style=\"padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;\">active</td><td style=\"padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;\">Affected</td></tr></tbody></table>",
+            "description": "Time entry billable.",
+            "example": "1 hr",
             "availability": "available-unused"
           },
           {
             "path": "ticket.totalTimeWorked",
             "type": "string",
-            "description": "Ticket Closed only (client and internal emails): total time worked across all ticket time entries (end-start interval), formatted like '3 hrs 30 min'.",
+            "description": "Total recorded worked duration, including non-billable time.",
             "example": "3 hrs 30 min",
-            "availability": "used"
+            "availability": "available-unused"
           },
           {
             "path": "ticket.totalTimeBillable",
             "type": "string",
-            "description": "Ticket Closed only (client and internal emails): total recorded billable time, including time not yet invoiced (0 for non-billable entries), formatted like '2 hrs 15 min'.",
+            "description": "Total recorded billable duration, whether invoiced or not.",
             "example": "2 hrs 15 min",
-            "availability": "used"
-          },
-          {
-            "path": "ticket.timeHtml",
-            "type": "raw-html",
-            "description": "Ticket Closed only (client and internal emails): localized time-entry table (Date, Technician, Worked, Billable), oldest first by entry date so back-dated and multi-technician entries read as a timeline. Dates use the tenant email locale/date format. Empty string when none; guard with {{#if ticket.timeHtml}}.",
-            "example": "<table style=\"border-collapse:collapse;width:100%;margin:0;font-size:13px;\"><thead><tr><th style=\"text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#1f2933;white-space:nowrap;\">Date</th><th style=\"text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#1f2933;white-space:nowrap;\">Technician</th><th style=\"text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#1f2933;white-space:nowrap;\">Worked</th><th style=\"text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#1f2933;white-space:nowrap;\">Billable</th></tr></thead><tbody><tr><td style=\"padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;\">10/30/2026</td><td style=\"padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;\">Jane Smith</td><td style=\"padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;\">2 hrs</td><td style=\"padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;\">2 hrs</td></tr><tr><td style=\"padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;\">11/02/2026</td><td style=\"padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;\">Jane Smith</td><td style=\"padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;\">3 hrs</td><td style=\"padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;\">0 min</td></tr></tbody></table>",
-            "availability": "used"
-          },
-          {
-            "path": "ticket.timeEntries",
-            "type": "array",
-            "description": "Ticket Closed only (client and internal emails): plain-text rows behind ticket.timeHtml, same order and formatting. Use {{#each ticket.timeEntries}} in text bodies.",
-            "example": "[{\"date\":\"10/30/2026\",\"technician\":\"Jane Smith\",\"worked\":\"2 hrs\",\"billable\":\"2 hrs\"}]",
-            "availability": "used"
-          },
-          {
-            "path": "ticket.timeEntries[].date",
-            "type": "string",
-            "description": "Entry date in the tenant email locale/date format. Use {{date}} inside {{#each ticket.timeEntries}}.",
-            "example": "10/30/2026",
-            "availability": "used"
-          },
-          {
-            "path": "ticket.timeEntries[].technician",
-            "type": "string",
-            "description": "Technician who logged the entry. Use {{technician}} inside {{#each ticket.timeEntries}}.",
-            "example": "Jane Smith",
-            "availability": "used"
-          },
-          {
-            "path": "ticket.timeEntries[].worked",
-            "type": "string",
-            "description": "Time worked for the entry, formatted like '2 hrs'. Use {{worked}} inside {{#each ticket.timeEntries}}.",
-            "example": "2 hrs",
-            "availability": "used"
-          },
-          {
-            "path": "ticket.timeEntries[].billable",
-            "type": "string",
-            "description": "Billable time for the entry (0 min when non-billable). Use {{billable}} inside {{#each ticket.timeEntries}}.",
-            "example": "2 hrs",
-            "availability": "used"
+            "availability": "available-unused"
           },
           {
             "path": "ticket.remainingBlockHours",
             "type": "string",
-            "description": "Ticket Closed only (client and internal emails): client's remaining prepaid hour-block balance at send time (active, non-expired blocks; already-allocated even time deducted), formatted like '12 hrs 45 min'. '0 hrs' when the client has no blocks.",
+            "description": "Live available prepaid hour-block balance for the client at send time.",
             "example": "12 hrs 45 min",
-            "availability": "used"
-          }
-        ]
-      },
-      {
-        "templateName": "ticket-closed-internal",
-        "variables": [
-          {
-            "path": "ticket.title",
-            "type": "string",
-            "description": "The ticket's subject/title line.",
-            "example": "Printer not working on 3rd floor",
-            "availability": "used"
-          },
-          {
-            "path": "ticket.metaLine",
-            "type": "string",
-            "description": "One-line ticket#/priority/status summary shown under the header and in text.",
-            "example": "Ticket #TCK-1234 · High Priority · Closed",
             "availability": "available-unused"
-          },
-          {
-            "path": "ticket.id",
-            "type": "string",
-            "description": "Human-readable ticket number on the 'Ticket #' badge.",
-            "example": "TCK-1234",
-            "availability": "used"
-          },
-          {
-            "path": "ticket.clientName",
-            "type": "string",
-            "description": "Client/company the ticket belongs to; shown in the intro.",
-            "example": "Acme Corporation",
-            "availability": "used"
-          },
-          {
-            "path": "ticket.closedBy",
-            "type": "string",
-            "description": "Full name of the user who closed the ticket (or 'System').",
-            "example": "John Doe",
-            "availability": "used"
-          },
-          {
-            "path": "ticket.status",
-            "type": "string",
-            "description": "Current status name; used in the pl plain-text 'Closed status' line (other locales show a static 'Closed' label).",
-            "example": "Closed",
-            "availability": "available-unused"
-          },
-          {
-            "path": "ticket.priority",
-            "type": "string",
-            "description": "Priority level name; rendered only in the pl priority row.",
-            "example": "High",
-            "availability": "used"
-          },
-          {
-            "path": "ticket.priorityColor",
-            "type": "string",
-            "description": "Hex color for the priority badge; rendered only in the pl priority row.",
-            "example": "#dc2626",
-            "availability": "available-unused"
-          },
-          {
-            "path": "ticket.assignedToName",
-            "type": "string",
-            "description": "Full name of the assigned agent.",
-            "example": "Jane Smith",
-            "availability": "used"
-          },
-          {
-            "path": "ticket.assignedToEmail",
-            "type": "string",
-            "description": "Email of the assigned agent (or 'Not assigned'/'Not provided').",
-            "example": "jane.smith@example.com",
-            "availability": "used"
-          },
-          {
-            "path": "ticket.assignedDetails",
-            "type": "string",
-            "description": "Assigned agent name with email, for plain text.",
-            "example": "Jane Smith (jane.smith@example.com)",
-            "availability": "used"
-          },
-          {
-            "path": "ticket.requesterName",
-            "type": "string",
-            "description": "Name of the requesting contact.",
-            "example": "John Doe",
-            "availability": "used"
-          },
-          {
-            "path": "ticket.requesterContact",
-            "type": "string",
-            "description": "Requester email and phone joined for the HTML contact block.",
-            "example": "john.doe@acme.com · +1 (555) 010-1234",
-            "availability": "used"
-          },
-          {
-            "path": "ticket.requesterDetails",
-            "type": "string",
-            "description": "Requester name/email/phone joined for plain text.",
-            "example": "John Doe · john.doe@acme.com · +1 (555) 010-1234",
-            "availability": "used"
-          },
-          {
-            "path": "ticket.board",
-            "type": "string",
-            "description": "Board/queue the ticket lives on.",
-            "example": "Help Desk",
-            "availability": "available-unused"
-          },
-          {
-            "path": "ticket.categoryDetails",
-            "type": "string",
-            "description": "Category / subcategory combined.",
-            "example": "Hardware / Printer",
-            "availability": "used"
-          },
-          {
-            "path": "ticket.locationSummary",
-            "type": "string",
-            "description": "Client site name and address.",
-            "example": "Acme HQ • 100 Main St, Springfield, IL 62701 US",
-            "availability": "used"
-          },
-          {
-            "path": "ticket.resolution",
-            "type": "string",
-            "description": "HTML of the resolution comment shown in the 'Resolution' box (rendered via {{{ }}}).",
-            "example": "<p>Replaced printer toner cartridge.</p>",
-            "availability": "used"
-          },
-          {
-            "path": "ticket.url",
-            "type": "string",
-            "description": "Deep link to the ticket: portal for clients and MSP for internal recipients.",
-            "example": "https://app.example.com/msp/tickets/sample-ticket-id",
-            "availability": "available-unused"
-          },
-          {
-            "path": "ticket.description",
-            "type": "string",
-            "description": "Ticket description body; assembled into the closed context but not referenced by this template.",
-            "example": "Toner is jammed and red error light is on.",
-            "availability": "available-unused"
-          },
-          {
-            "path": "ticket.changes",
-            "type": "string",
-            "description": "Rendered HTML change list; assembled (from payload.changes) but not referenced by ticket-closed.",
-            "example": "<ul>…</ul>",
-            "availability": "available-unused"
-          },
-          {
-            "path": "ticket.requesterEmail",
-            "type": "string",
-            "description": "Requester email in isolation; assembled but unused.",
-            "example": "john.doe@acme.com",
-            "availability": "available-unused"
-          },
-          {
-            "path": "ticket.requesterPhone",
-            "type": "string",
-            "description": "Requester phone in isolation; assembled but unused.",
-            "example": "+1 (555) 010-1234",
-            "availability": "available-unused"
-          },
-          {
-            "path": "ticket.category",
-            "type": "string",
-            "description": "Individual category value; the stock template uses ticket.categoryDetails.",
-            "example": "Hardware",
-            "availability": "available-unused"
-          },
-          {
-            "path": "ticket.subcategory",
-            "type": "string",
-            "description": "Individual category value; the stock template uses ticket.categoryDetails.",
-            "example": "Printer",
-            "availability": "available-unused"
-          },
-          {
-            "path": "ticket.assets",
-            "type": "array",
-            "description": "Linked assets. Use {{#each ticket.assets}} to choose fields and author your own layout.",
-            "example": "{{ticket.assets}}",
-            "availability": "used",
-            "notes": "The variable card inserts only the token. Use an each block with the asset fields to render rows; see the ticket email editing guide."
-          },
-          {
-            "path": "ticket.assets[].assetTag",
-            "type": "string",
-            "description": "Asset tag. Optional: include {{assetTag}} inside {{#each ticket.assets}}, or leave it out.",
-            "example": "AST-0042",
-            "availability": "available-unused"
-          },
-          {
-            "path": "ticket.assets[].name",
-            "type": "string",
-            "description": "Asset name. Use {{name}} inside {{#each ticket.assets}}.",
-            "example": "Office Printer",
-            "availability": "used"
-          },
-          {
-            "path": "ticket.assets[].assetType",
-            "type": "string",
-            "description": "Asset type display name (or stored type slug if no registry entry exists). Use {{assetType}} inside {{#each ticket.assets}}.",
-            "example": "Printer",
-            "availability": "used"
-          },
-          {
-            "path": "ticket.assets[].manufacturer",
-            "type": "string",
-            "description": "Manufacturer. Use {{manufacturer}} inside {{#each ticket.assets}}; empty when not recorded.",
-            "example": "Brother",
-            "availability": "used"
-          },
-          {
-            "path": "ticket.assets[].model",
-            "type": "string",
-            "description": "Model. Use {{model}} inside {{#each ticket.assets}}; empty when not recorded.",
-            "example": "HL-L6200DW",
-            "availability": "used"
-          },
-          {
-            "path": "ticket.assets[].serialNumber",
-            "type": "string",
-            "description": "Serial number. Use {{serialNumber}} inside {{#each ticket.assets}}; empty when not recorded.",
-            "example": "SN-0042",
-            "availability": "used"
-          },
-          {
-            "path": "ticket.assets[].status",
-            "type": "string",
-            "description": "Stored asset status. Use {{status}} inside {{#each ticket.assets}}.",
-            "example": "active",
-            "availability": "available-unused"
-          },
-          {
-            "path": "ticket.assets[].location",
-            "type": "string",
-            "description": "Asset location. Use {{location}} inside {{#each ticket.assets}}; empty when not recorded.",
-            "example": "Main Office",
-            "availability": "available-unused"
-          },
-          {
-            "path": "ticket.assets[].relationship",
-            "type": "string",
-            "description": "Ticket relationship label (Affected or Related). Use {{relationship}} inside {{#each ticket.assets}}.",
-            "example": "Affected",
-            "availability": "available-unused"
-          },
-          {
-            "path": "ticket.assetsHtml",
-            "type": "raw-html",
-            "description": "Localized fixed-layout asset table. Use {{#each ticket.assets}} for editable markup; empty when no assets are linked.",
-            "example": "<table style=\"border-collapse:collapse;width:100%;margin:0;font-size:13px;\"><thead><tr><th style=\"text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#1f2933;white-space:nowrap;\">Asset Tag</th><th style=\"text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#1f2933;white-space:nowrap;\">Name</th><th style=\"text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#1f2933;white-space:nowrap;\">Serial #</th><th style=\"text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#1f2933;white-space:nowrap;\">Status</th><th style=\"text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#1f2933;white-space:nowrap;\">Relationship</th></tr></thead><tbody><tr><td style=\"padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;\">AST-0042</td><td style=\"padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;\">Office Printer</td><td style=\"padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;\">SN-0042</td><td style=\"padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;\">active</td><td style=\"padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;\">Affected</td></tr></tbody></table>",
-            "availability": "available-unused"
-          },
-          {
-            "path": "ticket.materialsHtml",
-            "type": "raw-html",
-            "description": "Ticket Closed internal only: pre-rendered materials/services table (Item, Qty, Rate, Amount, Billed). Empty string when none; guard with {{#if ticket.materialsHtml}}.",
-            "example": "<table style=\"border-collapse:collapse;width:100%;margin:0;font-size:13px;\"><thead><tr><th style=\"text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#1f2933;white-space:nowrap;\">Item</th><th style=\"text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#1f2933;white-space:nowrap;\">Qty</th><th style=\"text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#1f2933;white-space:nowrap;\">Rate</th><th style=\"text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#1f2933;white-space:nowrap;\">Amount</th><th style=\"text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#1f2933;white-space:nowrap;\">Billed</th></tr></thead><tbody><tr><td style=\"padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;\">Toner cartridge</td><td style=\"padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;\">1</td><td style=\"padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;\">145.00 USD</td><td style=\"padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;\">145.00 USD</td><td style=\"padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;\">No</td></tr></tbody></table>",
-            "availability": "used"
-          },
-          {
-            "path": "ticket.materialsTotal",
-            "type": "string",
-            "description": "Ticket Closed internal only: currency-formatted total of all material line amounts, using the tenant email locale and material currency; zero when there are no materials.",
-            "example": "145.00 USD",
-            "availability": "used"
-          },
-          {
-            "path": "ticket.totalTimeWorked",
-            "type": "string",
-            "description": "Ticket Closed only (client and internal emails): total time worked across all ticket time entries (end-start interval), formatted like '3 hrs 30 min'.",
-            "example": "3 hrs 30 min",
-            "availability": "used"
-          },
-          {
-            "path": "ticket.totalTimeBillable",
-            "type": "string",
-            "description": "Ticket Closed only (client and internal emails): total recorded billable time, including time not yet invoiced (0 for non-billable entries), formatted like '2 hrs 15 min'.",
-            "example": "2 hrs 15 min",
-            "availability": "used"
-          },
-          {
-            "path": "ticket.timeHtml",
-            "type": "raw-html",
-            "description": "Ticket Closed only (client and internal emails): localized time-entry table (Date, Technician, Worked, Billable), oldest first by entry date so back-dated and multi-technician entries read as a timeline. Dates use the tenant email locale/date format. Empty string when none; guard with {{#if ticket.timeHtml}}.",
-            "example": "<table style=\"border-collapse:collapse;width:100%;margin:0;font-size:13px;\"><thead><tr><th style=\"text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#1f2933;white-space:nowrap;\">Date</th><th style=\"text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#1f2933;white-space:nowrap;\">Technician</th><th style=\"text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#1f2933;white-space:nowrap;\">Worked</th><th style=\"text-align:left;padding:6px 10px;border-bottom:2px solid #e4ddff;font-weight:600;color:#1f2933;white-space:nowrap;\">Billable</th></tr></thead><tbody><tr><td style=\"padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;\">10/30/2026</td><td style=\"padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;\">Jane Smith</td><td style=\"padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;\">2 hrs</td><td style=\"padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;\">2 hrs</td></tr><tr><td style=\"padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;\">11/02/2026</td><td style=\"padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;\">Jane Smith</td><td style=\"padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;\">3 hrs</td><td style=\"padding:6px 10px;border-bottom:1px solid #e6deff;color:#1f2933;word-break:break-word;\">0 min</td></tr></tbody></table>",
-            "availability": "used"
-          },
-          {
-            "path": "ticket.timeEntries",
-            "type": "array",
-            "description": "Ticket Closed only (client and internal emails): plain-text rows behind ticket.timeHtml, same order and formatting. Use {{#each ticket.timeEntries}} in text bodies.",
-            "example": "[{\"date\":\"10/30/2026\",\"technician\":\"Jane Smith\",\"worked\":\"2 hrs\",\"billable\":\"2 hrs\"}]",
-            "availability": "used"
-          },
-          {
-            "path": "ticket.timeEntries[].date",
-            "type": "string",
-            "description": "Entry date in the tenant email locale/date format. Use {{date}} inside {{#each ticket.timeEntries}}.",
-            "example": "10/30/2026",
-            "availability": "used"
-          },
-          {
-            "path": "ticket.timeEntries[].technician",
-            "type": "string",
-            "description": "Technician who logged the entry. Use {{technician}} inside {{#each ticket.timeEntries}}.",
-            "example": "Jane Smith",
-            "availability": "used"
-          },
-          {
-            "path": "ticket.timeEntries[].worked",
-            "type": "string",
-            "description": "Time worked for the entry, formatted like '2 hrs'. Use {{worked}} inside {{#each ticket.timeEntries}}.",
-            "example": "2 hrs",
-            "availability": "used"
-          },
-          {
-            "path": "ticket.timeEntries[].billable",
-            "type": "string",
-            "description": "Billable time for the entry (0 min when non-billable). Use {{billable}} inside {{#each ticket.timeEntries}}.",
-            "example": "2 hrs",
-            "availability": "used"
-          },
-          {
-            "path": "ticket.remainingBlockHours",
-            "type": "string",
-            "description": "Ticket Closed only (client and internal emails): client's remaining prepaid hour-block balance at send time (active, non-expired blocks; already-allocated even time deducted), formatted like '12 hrs 45 min'. '0 hrs' when the client has no blocks.",
-            "example": "12 hrs 45 min",
-            "availability": "used"
           }
         ]
       },
@@ -3945,9 +3333,9 @@ export const templateVariableSeed: TemplateVariableSeedCategory[] = [
           {
             "path": "comment.text",
             "type": "string",
-            "description": "Readable text projection of the comment body, used by every plain-text translation.",
+            "description": "Plain-text extraction of the comment body; assembled but not referenced.",
             "example": "Toner cartridge has been ordered, ETA tomorrow.",
-            "availability": "used"
+            "availability": "available-unused"
           },
           {
             "path": "comment.plainText",
@@ -4111,9 +3499,17 @@ export const templateVariableSeed: TemplateVariableSeedCategory[] = [
           {
             "path": "ticket.description",
             "type": "string",
-            "description": "Legacy plain description field; the template uses descriptionHtml in HTML and descriptionText in plain text.",
+            "description": "Ticket description body (HTML-rendered via {{{ }}}); falls back to 'No description provided.'.",
             "example": "Toner is jammed and red error light is on.",
-            "availability": "available-unused"
+            "availability": "used"
+          },
+          {
+            "path": "ticket.summary",
+            "type": "string",
+            "description": "pl-only description-box variable: the Polish translation's descriptionVar renders {{ticket.summary}} instead of ticket.description.",
+            "example": "",
+            "availability": "used",
+            "notes": "Referenced ONLY in the pl translation; NOT assembled in handleTicketCreated, so it renders empty for Polish recipients."
           },
           {
             "path": "ticket.url",
@@ -4132,16 +3528,16 @@ export const templateVariableSeed: TemplateVariableSeedCategory[] = [
           {
             "path": "ticket.descriptionText",
             "type": "string",
-            "description": "Plain-text version of the description used by the plain-text email body.",
+            "description": "Plain-text version of the description; assembled but not referenced.",
             "example": "Toner is jammed and red error light is on.",
-            "availability": "used"
+            "availability": "available-unused"
           },
           {
             "path": "ticket.descriptionHtml",
-            "type": "raw-html",
-            "description": "Sanitized rich-text description used by the HTML email body.",
+            "type": "string",
+            "description": "HTML version of the description; assembled separately but the template uses ticket.description.",
             "example": "<p>Toner is jammed…</p>",
-            "availability": "used"
+            "availability": "available-unused"
           },
           {
             "path": "ticket.requesterEmail",
@@ -4326,16 +3722,16 @@ export const templateVariableSeed: TemplateVariableSeedCategory[] = [
           {
             "path": "ticket.descriptionText",
             "type": "string",
-            "description": "Plain-text version of the description used by the plain-text email body.",
+            "description": "Plain-text version of the description; assembled but not referenced.",
             "example": "Toner is jammed and red error light is on.",
-            "availability": "used"
+            "availability": "available-unused"
           },
           {
             "path": "ticket.descriptionHtml",
-            "type": "raw-html",
-            "description": "Sanitized rich-text description used by the HTML email body.",
+            "type": "string",
+            "description": "HTML version of the description; assembled separately but the template uses ticket.description.",
             "example": "<p>Toner is jammed…</p>",
-            "availability": "used"
+            "availability": "available-unused"
           },
           {
             "path": "ticket.requesterEmail",
@@ -4637,9 +4033,9 @@ export const templateVariableSeed: TemplateVariableSeedCategory[] = [
           {
             "path": "ticket.description",
             "type": "string",
-            "description": "Legacy plain description field; the template uses descriptionHtml in HTML and descriptionText in plain text.",
+            "description": "Ticket description body shown in the description box (rendered via {{ }}).",
             "example": "Toner is jammed and red error light is on.",
-            "availability": "available-unused"
+            "availability": "used"
           },
           {
             "path": "ticket.url",
@@ -4756,16 +4152,16 @@ export const templateVariableSeed: TemplateVariableSeedCategory[] = [
           {
             "path": "ticket.descriptionText",
             "type": "string",
-            "description": "Sanitized plain-text description used by the plain-text email body.",
+            "description": "Plain-text description; assembled but unused.",
             "example": "Toner is jammed and red error light is on.",
-            "availability": "used"
+            "availability": "available-unused"
           },
           {
             "path": "ticket.descriptionHtml",
-            "type": "raw-html",
-            "description": "Sanitized rich-text description used by the HTML email body.",
+            "type": "string",
+            "description": "HTML description; assembled but the template uses ticket.description.",
             "example": "<p>Toner is jammed…</p>",
-            "availability": "used"
+            "availability": "available-unused"
           }
         ]
       },
@@ -4880,23 +4276,17 @@ export const templateVariableSeed: TemplateVariableSeedCategory[] = [
           {
             "path": "ticket.description",
             "type": "string",
-            "description": "Legacy plain description field; the template uses descriptionHtml in HTML and descriptionText in plain text.",
+            "description": "Ticket description body (HTML-rendered via {{{ }}}).",
             "example": "Toner is jammed and red error light is on.",
-            "availability": "available-unused"
+            "availability": "used"
           },
           {
-            "path": "ticket.descriptionText",
+            "path": "ticket.summary",
             "type": "string",
-            "description": "Sanitized plain-text description used by the plain-text email body.",
-            "example": "Toner is jammed and red error light is on.",
-            "availability": "used"
-          },
-          {
-            "path": "ticket.descriptionHtml",
-            "type": "raw-html",
-            "description": "Sanitized rich-text description used by the HTML email body.",
-            "example": "<p>Toner is jammed…</p>",
-            "availability": "used"
+            "description": "pl-only description-box variable: the Polish translation's descriptionVar renders {{ticket.summary}} instead of ticket.description.",
+            "example": "",
+            "availability": "used",
+            "notes": "Referenced ONLY in the pl translation; NOT assembled in sendTicketAssignedNotifications, so it renders empty for Polish recipients."
           },
           {
             "path": "ticket.url",
@@ -5751,10 +5141,10 @@ export const sharedBlockSeed: SharedVariableBlockSeed[] = [
       {
         "path": "ticket.description",
         "type": "string",
-        "description": "Legacy plain-text ticket description body.",
+        "description": "Ticket description body (raw HTML via triple-stache in en/pt; escaped in fr/es/de/nl/it).",
         "example": "Toner is jammed and red error light is on.",
-        "availability": "available-unused",
-        "notes": "Description emails use ticket.descriptionHtml in HTML and ticket.descriptionText in plain text for every locale."
+        "availability": "used",
+        "notes": "RAW-HTML in some locales. pl translations swap in {{ticket.summary}} (never assembled -> empty). descriptionText/descriptionHtml duplicates are assembled-unused."
       },
       {
         "path": "ticket.url",

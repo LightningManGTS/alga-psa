@@ -45,11 +45,6 @@ describe('editor palette integration', () => {
     expect(containsEmailPaletteTokens(rewritten, STOCK_EMAIL_PALETTE)).toBe(false);
   });
 
-  it('previews pre-rendered tables in the saved palette even before it is applied', () => {
-    expect(source).toContain('palette={brandingPalette}');
-    expect(source).not.toContain('palette={appliedPalette}');
-  });
-
   it('starts a clone from the branded HTML so the row classifies as branded', () => {
     expect(source).toContain('applyEmailPalette(template.html_content, STOCK_EMAIL_PALETTE, brandingTarget)');
     expect(source).toContain('brandingStatus.palette.appliedPalette ?? brandingStatus.resolved');

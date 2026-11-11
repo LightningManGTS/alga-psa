@@ -498,7 +498,6 @@ export function EmailBrandingPanel({
                 id={`email-branding-preview-${previewTemplate.name}`}
                 htmlContent={previewHtml(previewTemplate.html_content)}
                 brandLogoUrls={status.logoOptions}
-                palette={resolved}
                 templateName={previewTemplate.name}
               />
             )}
