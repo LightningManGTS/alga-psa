@@ -44,6 +44,11 @@
       "costCurrency": "⟦Şŧȯƈķ ƈȯşŧş ŭşḗ ḓīƒƒḗřḗƞŧ ƈŭřřḗƞƈīḗş. Řḗƈȯƞƈīŀḗ ŧħīş ḿȧŧḗřīȧŀ ƀḗƒȯřḗ řḗḓŭƈīƞɠ ʠŭȧƞŧīŧẏ.⟧"
     }
   },
+  "emailRichText": {
+    "imageNotIncluded": "⟦[Īḿȧɠḗ ƞȯŧ īƞƈŀŭḓḗḓ]⟧",
+    "protectedContentNotIncluded": "⟦[Ƥřȯŧḗƈŧḗḓ ƈȯƞŧḗƞŧ ƞȯŧ īƞƈŀŭḓḗḓ]⟧",
+    "unsupportedContent": "⟦[Ŭƞşŭƥƥȯřŧḗḓ ƈȯƞŧḗƞŧ]⟧"
+  },
   "importDialog": {
     "errorCount_one": "⟦{{count}} ḗřřȯř:⟧",
     "errorCount_other": "⟦{{count}} ḗřřȯřş:⟧",

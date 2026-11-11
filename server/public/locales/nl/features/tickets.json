@@ -44,6 +44,11 @@
       "costCurrency": "De voorraadkosten gebruiken verschillende valuta. Stem dit materiaal af voordat u het aantal verlaagt."
     }
   },
+  "emailRichText": {
+    "imageNotIncluded": "[Afbeelding niet opgenomen]",
+    "protectedContentNotIncluded": "[Beveiligde inhoud niet opgenomen]",
+    "unsupportedContent": "[Niet-ondersteunde inhoud]"
+  },
   "importDialog": {
     "errorCount_one": "{{count}} fout:",
     "errorCount_other": "{{count}} fouten:",

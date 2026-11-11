@@ -44,6 +44,11 @@
       "costCurrency": "Les coûts de stock utilisent des devises différentes. Rapprochez ce matériau avant de réduire la quantité."
     }
   },
+  "emailRichText": {
+    "imageNotIncluded": "[Image non incluse]",
+    "protectedContentNotIncluded": "[Contenu protégé non inclus]",
+    "unsupportedContent": "[Contenu non pris en charge]"
+  },
   "importDialog": {
     "errorCount_one": "{{count}} erreur :",
     "errorCount_other": "{{count}} erreurs :",
