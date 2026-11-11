@@ -107,8 +107,11 @@ describe('closed-ticket email detail data', () => {
     expect(data.totalTimeWorked).toBe('3 hrs');
     expect(data.totalTimeBillable).toBe('2 hrs 15 min');
     const guide = readFileSync(path.join(root, 'docs/email/editing-ticket-email-html.md'), 'utf8');
-    const source = guide.match(/```handlebars\r?\n([\s\S]*?)```/)![1];
-    const render = Handlebars.compile(source, { strict: true });
+    const example = guide.match(/```html\r?\n([\s\S]*?)```/)?.[1];
+    expect(example).toBeDefined();
+    const source = example!.match(/\{\{#if ticket\.timeEntries\}\}[\s\S]*?\{\{\/if\}\}/)?.[0];
+    expect(source).toBeDefined();
+    const render = Handlebars.compile(source!, { strict: true });
     const html = render({ ticket: data });
     expect(html.match(/<td /g)).toHaveLength(12);
     for (const column of ['Date', 'Technician', 'Worked', 'Billable']) expect(html).toContain(`>${column}</th>`);
