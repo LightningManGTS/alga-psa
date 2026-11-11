@@ -31,16 +31,16 @@ describe('tenant table manifest golden order', () => {
     expect(tenantDeletionOrder()).toEqual(computed.order);
   });
 
-  it('has 617 unique ordered names', () => {
+  it('has 618 unique ordered names', () => {
     const order = tenantDeletionOrder();
-    expect(order).toHaveLength(617);
-    expect(new Set(order).size).toBe(617);
+    expect(order).toHaveLength(618);
+    expect(new Set(order).size).toBe(618);
   });
 
   it('deletes client-keyed fixed-fee entries before their ordered foreign-key parents', () => {
     const table = 'ticket_fixed_fee_services';
     const entry = TENANT_TABLE_MANIFEST.find(entry => entry.table === table);
-    expect(entry).toMatchObject({ deletion: 'ordered', clientKeyed: true });
+    expect(entry).toMatchObject({ deletion: 'ordered', clientKeyed: { by: 'column', column: 'client_id' } });
     const order = tenantDeletionOrder();
     const foreignKeys = TENANT_TABLE_FOREIGN_KEYS.filter(fk => fk.child === table);
     expect(foreignKeys.map(fk => fk.parent).sort()).toEqual(['clients', 'service_catalog', 'tenants', 'tickets']);
