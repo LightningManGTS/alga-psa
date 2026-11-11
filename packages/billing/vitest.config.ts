@@ -268,10 +268,8 @@ export default defineConfig({
         find: /^@alga-psa\/core\/i18n\/(.*)$/,
         replacement: `${path.resolve(__dirname, '../core/src/lib/i18n')}/$1`,
       },
-      {
-        find: /^@alga-psa\/db\/(admin|connection|tenant|tenantDb|workDate|commentEventRegistry)$/,
-        replacement: `${path.resolve(__dirname, '../db/src/lib')}/$1.ts`,
-      },
+      // Published @alga-psa/db subpaths come from its exports map (most live under src/lib).
+      ...exportedSourceAliases('@alga-psa/db', path.resolve(__dirname, '../db')),
       {
         find: /^@alga-psa\/auth\/sso\/entry$/,
         replacement: path.resolve(__dirname, '../auth/src/components/SsoProviderButtons.tsx'),
