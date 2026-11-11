@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { replaceTemplateVariables } from './EmailTemplatePreview';
+import { annotateHtmlSource } from './emailTemplateSourceMap';
 import { getSampleDataForPreview } from '../../lib/templateSampleData';
 
 const require = createRequire(import.meta.url);
@@ -17,6 +19,44 @@ function loadTemplate(relative: string, language = 'en'): { subject: string; htm
 }
 
 describe('replaceTemplateVariables #each handling', () => {
+  it('previews both documented ticket examples with their actual sample rows', () => {
+    const guide = readFileSync(path.resolve(here, '../../../../../docs/email/editing-ticket-email-html.md'), 'utf8');
+    const examples = [...guide.matchAll(/```html\r?\n([\s\S]*?)```/g)].map(match => match[1]);
+    expect(examples).toHaveLength(2);
+
+    for (const [index, source] of examples.entries()) {
+      const sample = getSampleDataForPreview('ticket-closed', source);
+      const rendered = replaceTemplateVariables(annotateHtmlSource(source), sample);
+      expect(rendered).not.toContain('{{');
+      expect(rendered).toContain(sample['ticket.title']);
+      expect(rendered).toContain(sample['ticket.materialsTotal']);
+      expect(rendered).toContain(sample['ticket.totalTimeWorked']);
+      expect(rendered).toContain(sample['ticket.totalTimeBillable']);
+      expect(rendered).toContain(sample['ticket.remainingBlockHours']);
+
+      const rows = [...rendered.matchAll(/<tbody\b[^>]*>([\s\S]*?)<\/tbody>/g)].map(match => {
+        expect(match[1].match(/<tr\b/g)).toHaveLength(1);
+        return [...match[1].matchAll(/<td\b[^>]*>([\s\S]*?)<\/td>/g)].map(cell => cell[1]);
+      });
+      const fields = (array: string, names: string[]) => names.map(name => sample[`ticket.${array}[].${name}`]);
+
+      expect(rows).toHaveLength(3);
+      expect(rows[0]).toEqual(index === 0
+        ? fields('assets', ['assetTag', 'name', 'assetType', 'manufacturer', 'model', 'serialNumber', 'status', 'location', 'relationship'])
+        : [
+            ...fields('assets', ['name', 'assetType']),
+            `${sample['ticket.assets[].manufacturer']} ${sample['ticket.assets[].model']}`,
+            sample['ticket.assets[].serialNumber'],
+          ]);
+      expect(rows[1]).toEqual(fields('materials', index === 0
+        ? ['name', 'description', 'quantity', 'rate', 'amount', 'currencyCode', 'billed']
+        : ['name', 'quantity', 'amount', 'billed']));
+      expect(rows[2]).toEqual(fields('timeEntries', index === 0
+        ? ['date', 'technician', 'worked', 'billable']
+        : ['date', 'technician', 'billable']));
+    }
+  });
+
   it('previews closed-ticket array columns using bare and this-qualified field names', () => {
     const data = getSampleDataForPreview('ticket-closed', '');
     const rendered = replaceTemplateVariables(
