@@ -3,9 +3,12 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
+import Handlebars from 'handlebars';
 import { replaceTemplateVariables } from './EmailTemplatePreview';
+import { getTemplateVariableToken } from './TemplateVariableReference';
 import { annotateHtmlSource } from './emailTemplateSourceMap';
 import { getSampleDataForPreview } from '../../lib/templateSampleData';
+import { getNestedTemplateExampleData, templateVariableRegistry } from '../../lib/templateVariables';
 
 const require = createRequire(import.meta.url);
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -19,6 +22,29 @@ function loadTemplate(relative: string, language = 'en'): { subject: string; htm
 }
 
 describe('replaceTemplateVariables #each handling', () => {
+  it('shows the same sample values for every added ticket detail field', () => {
+    const variables = templateVariableRegistry['ticket-closed'].variables;
+    const sample = getSampleDataForPreview('ticket-closed', '');
+    const nestedSample = getNestedTemplateExampleData('ticket-closed');
+    const arrays = ['ticket.assets', 'ticket.materials', 'ticket.timeEntries'];
+    const totals = new Set([
+      'ticket.materialsTotal',
+      'ticket.totalTimeWorked',
+      'ticket.totalTimeBillable',
+      'ticket.remainingBlockHours',
+    ]);
+
+    for (const variable of variables) {
+      const array = arrays.find((path) => variable.path.startsWith(`${path}[].`));
+      if (!array && !totals.has(variable.path)) continue;
+
+      const token = getTemplateVariableToken(variable);
+      const template = array ? `{{#each ${array}}}${token}{{/each}}` : token;
+      expect(replaceTemplateVariables(template, sample), variable.path).toBe(variable.example);
+      expect(Handlebars.compile(template, { strict: true })(nestedSample), variable.path).toBe(variable.example);
+    }
+  });
+
   it('previews both documented ticket examples with their actual sample rows', () => {
     const guide = readFileSync(path.resolve(here, '../../../../../docs/email/editing-ticket-email-html.md'), 'utf8');
     const examples = [...guide.matchAll(/```html\r?\n([\s\S]*?)```/g)].map(match => match[1]);
@@ -39,6 +65,8 @@ describe('replaceTemplateVariables #each handling', () => {
         return [...match[1].matchAll(/<td\b[^>]*>([\s\S]*?)<\/td>/g)].map(cell => cell[1]);
       });
       const fields = (array: string, names: string[]) => names.map(name => sample[`ticket.${array}[].${name}`]);
+      // The examples render the billed flag through {{#if billed}}Yes{{else}}No{{/if}}.
+      const materialCells = (names: string[]) => names.map(name => (name === 'billed' ? 'Yes' : sample[`ticket.materials[].${name}`]));
 
       expect(rows).toHaveLength(3);
       expect(rows[0]).toEqual(index === 0
@@ -48,7 +76,7 @@ describe('replaceTemplateVariables #each handling', () => {
             `${sample['ticket.assets[].manufacturer']} ${sample['ticket.assets[].model']}`,
             sample['ticket.assets[].serialNumber'],
           ]);
-      expect(rows[1]).toEqual(fields('materials', index === 0
+      expect(rows[1]).toEqual(materialCells(index === 0
         ? ['name', 'description', 'quantity', 'rate', 'amount', 'currencyCode', 'billed']
         : ['name', 'quantity', 'amount', 'billed']));
       expect(rows[2]).toEqual(fields('timeEntries', index === 0
@@ -94,5 +122,14 @@ describe('replaceTemplateVariables #each handling', () => {
     const rendered = replaceTemplateVariables('Hello {{user.name}}!', { 'user.name': 'Dorothy' });
 
     expect(rendered).toBe('Hello Dorothy!');
+  });
+
+  it('shows the if branch and drops the else branch in preview', () => {
+    const rendered = replaceTemplateVariables(
+      '<td>{{#if billed}}Yes{{else}}No{{/if}}</td>',
+      { billed: 'true' },
+    );
+
+    expect(rendered).toBe('<td>Yes</td>');
   });
 });

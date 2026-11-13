@@ -17,9 +17,16 @@ import {
 const DOCUMENTATION_URL =
   "https://algapsa.com/documentation/email-template-variables";
 
+const TICKET_ARRAY_ROWS: Record<string, string> = {
+  "ticket.assets": "{{name}}",
+  "ticket.materials": "{{name}}: {{quantity}} \u00d7 {{rate}} = {{amount}}",
+  "ticket.timeEntries": "{{date}} | {{technician}} | {{worked}} | {{billable}}",
+};
+
 function tokenFor(variable: VariableDef): string {
-  if (variable.type === "array" && variable.example.includes("{{#each ")) {
-    return variable.example;
+  const arrayRow = variable.type === "array" ? TICKET_ARRAY_ROWS[variable.path] : undefined;
+  if (arrayRow) {
+    return `{{#each ${variable.path}}}${arrayRow}{{/each}}`;
   }
   const path = variable.path.includes("[].")
     ? `this.${variable.path.split("[].").pop()}`

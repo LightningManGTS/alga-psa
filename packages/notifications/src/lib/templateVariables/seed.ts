@@ -2949,7 +2949,7 @@ export const templateVariableSeed: TemplateVariableSeedCategory[] = [
             "path": "ticket.assets",
             "type": "array",
             "description": "Linked assets. Iterate to choose columns; values are plain data, not HTML.",
-            "example": "{{#each ticket.assets}}{{name}}{{/each}}",
+            "example": "Office Printer",
             "availability": "available-unused"
           },
           {
@@ -3019,7 +3019,7 @@ export const templateVariableSeed: TemplateVariableSeedCategory[] = [
             "path": "ticket.materials",
             "type": "array",
             "description": "Material rows with quantity, currency-formatted rate and amount, and billed state.",
-            "example": "{{#each ticket.materials}}{{name}}: {{quantity}} × {{rate}} = {{amount}}{{/each}}",
+            "example": "Toner cartridge: 2 × $45.00 = $90.00",
             "availability": "available-unused"
           },
           {
@@ -3047,14 +3047,14 @@ export const templateVariableSeed: TemplateVariableSeedCategory[] = [
             "path": "ticket.materials[].rate",
             "type": "string",
             "description": "Material rate.",
-            "example": "USD 45.00",
+            "example": "$45.00",
             "availability": "available-unused"
           },
           {
             "path": "ticket.materials[].amount",
             "type": "string",
             "description": "Material amount.",
-            "example": "USD 90.00",
+            "example": "$90.00",
             "availability": "available-unused"
           },
           {
@@ -3075,14 +3075,14 @@ export const templateVariableSeed: TemplateVariableSeedCategory[] = [
             "path": "ticket.materialsTotal",
             "type": "string",
             "description": "Material totals, kept separate by currency when necessary.",
-            "example": "USD 90.00",
+            "example": "$90.00",
             "availability": "available-unused"
           },
           {
             "path": "ticket.timeEntries",
             "type": "array",
             "description": "Individual time entries, oldest first. Date, technician, worked and billable can be laid out as an editable table.",
-            "example": "{{#each ticket.timeEntries}}{{date}} | {{technician}} | {{worked}} | {{billable}}{{/each}}",
+            "example": "06/10/2025 | Jane Smith | 1 hr 30 min | 1 hr",
             "availability": "available-unused"
           },
           {

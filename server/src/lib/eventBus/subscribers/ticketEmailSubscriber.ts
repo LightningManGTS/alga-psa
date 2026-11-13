@@ -11,7 +11,11 @@ import {
   TicketCommentAddedEvent
 } from '@alga-psa/event-schemas';
 import { sendEventEmail, SendEmailParams } from '../../notifications/sendEventEmail';
-import { buildTicketEmailDetailBlocks } from '../../notifications/ticketEmailDetailBlocks';
+import {
+  buildTicketEmailDetailBlocks,
+  emptyTicketEmailDetailBlocks,
+  type HourBlockMinutesResolver,
+} from '../../notifications/ticketEmailDetailBlocks';
 import { resolveCoManagedCommentStep, audienceRecipients, coManagedSendFields } from '../../notifications/coManagedCommentDelivery';
 import { projectCoManagedNotificationSnapshot } from '@alga-psa/co-managed/sharedWorkProjection';
 import { EventEmailRetryQueue } from '../../notifications/EventEmailRetryQueue';
@@ -31,6 +35,7 @@ import {
   type ResolvedRecipient,
 } from '@alga-psa/shared/lib/tickets/boardNotificationRules';
 import { getAllTicketAssignees } from '@alga-psa/shared/lib/tickets/ticketAssignees';
+import { getAvailableHourBlockMinutes } from '@alga-psa/shared/billingClients/hourBlockService';
 import { filterRecipientsWhoCanReadTicket } from '../../notifications/boardNotificationAudience';
 import { buildTenantPortalSlug } from '@shared/utils/tenantSlug';
 import { TenantEmailService } from '@alga-psa/email';
@@ -3638,9 +3643,30 @@ async function handleTicketClosed(event: TicketClosedEvent): Promise<void> {
 
     const { internalUrl, portalUrl } = await resolveTicketLinks(db, tenantId, ticket.ticket_id, ticket.ticket_number);
 
+    // One hour-block lookup per client per event, shared by the master ticket
+    // and every bundled child (bundle children normally share the master's client).
+    const hourBlockByClient = new Map<string, Promise<number>>();
+    const resolveHourBlockMinutes: HourBlockMinutesResolver = (clientId) => {
+      let lookup = hourBlockByClient.get(clientId);
+      if (!lookup) {
+        lookup = getAvailableHourBlockMinutes(db, tenantId, clientId);
+        hourBlockByClient.set(clientId, lookup);
+      }
+      return lookup;
+    };
+
+    // Detail blocks are supplemental: a billing-side failure (e.g. an
+    // unsupported material currency) must not stop the close notification.
     const detailBlocks = await buildTicketEmailDetailBlocks(
-      db, tenantId, ticket.ticket_id, ticket.client_id, emailTimeZone,
-    );
+      db, tenantId, ticket.ticket_id, ticket.client_id, emailTimeZone, resolveHourBlockMinutes,
+    ).catch((error) => {
+      logger.warn('[TicketEmailSubscriber] Failed to build ticket email detail blocks; sending without details:', {
+        ticketId: ticket.ticket_id,
+        tenantId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+      return emptyTicketEmailDetailBlocks();
+    });
     const baseTicketContext = {
       id: ticket.ticket_number,
       title: ticket.title,
@@ -3835,8 +3861,15 @@ async function handleTicketClosed(event: TicketClosedEvent): Promise<void> {
 
           const { portalUrl: childPortalUrl } = buildTicketLinks(bundlePortalCtx, child.ticket_id);
           const childDetailBlocks = await buildTicketEmailDetailBlocks(
-            db, tenantId, child.ticket_id, child.client_id, emailTimeZone,
-          );
+            db, tenantId, child.ticket_id, child.client_id, emailTimeZone, resolveHourBlockMinutes,
+          ).catch((error) => {
+            logger.warn('[TicketEmailSubscriber] Failed to build bundled child detail blocks; sending without details:', {
+              ticketId: child.ticket_id,
+              tenantId,
+              error: error instanceof Error ? error.message : 'Unknown error',
+            });
+            return emptyTicketEmailDetailBlocks();
+          });
 
           await sendIfUnique({
             tenantId,

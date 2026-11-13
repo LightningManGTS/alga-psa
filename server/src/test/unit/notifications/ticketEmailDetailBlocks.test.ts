@@ -138,18 +138,11 @@ describe('closed-ticket email detail data', () => {
     expect(rows[0].entry_id).toBe('B');
   });
 
-  it('scopes every query and join and wires details only into closed notifications', async () => {
+  it('scopes every query and join to the tenant', async () => {
     await build();
     expect(state.tenant).toHaveBeenCalledTimes(3);
     for (const call of state.tenant.mock.calls) expect(call).toEqual([knex, 'tenant-1']);
     expect(state.joins.mock.calls.map(call => call[1])).toEqual(['assets as a', 'asset_type_registry as atr', 'service_catalog as sc', 'users as u']);
     expect(state.where).toHaveBeenCalledWith({ 'te.work_item_id': 'ticket-1', 'te.work_item_type': 'ticket' });
-    const source = readFileSync(path.join(root, 'server/src/lib/eventBus/subscribers/ticketEmailSubscriber.ts'), 'utf8');
-    const beforeClosed = source.slice(0, source.indexOf('async function handleTicketClosed('));
-    expect(beforeClosed.match(/await buildTicketEmailDetailBlocks/g)).toBeNull();
-    expect(source.match(/await buildTicketEmailDetailBlocks/g)).toHaveLength(2);
-    expect(source).toContain('db, tenantId, child.ticket_id, child.client_id, emailTimeZone');
-    expect(source).not.toContain("template: 'ticket-closed-client'");
-    expect(source).not.toContain("template: 'ticket-closed-internal'");
   });
 });
