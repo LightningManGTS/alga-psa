@@ -3,12 +3,13 @@ import type { Knex } from 'knex';
 
 // Drives handleTicketClosed end-to-end over a fake tenantDb facade so the
 // closed-ticket detail contract (delivery into send contexts, per-client
-// hour-block memoization, non-fatal builder failures) is proven behaviorally
+// hour-block memoization, section-scoped data failures) is proven behaviorally
 // rather than by grepping the subscriber source.
 
 const state = vi.hoisted(() => ({
   materials: [] as Record<string, unknown>[],
   materialsFail: false,
+  logError: vi.fn(),
   hours: vi.fn(),
   sends: [] as any[],
 }));
@@ -17,6 +18,11 @@ vi.mock('@alga-psa/shared/billingClients/hourBlockService', async (importOrigina
   ...(await importOriginal<typeof import('@alga-psa/shared/billingClients/hourBlockService')>()),
   getAvailableHourBlockMinutes: state.hours,
 }));
+
+vi.mock('@alga-psa/core/logger', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@alga-psa/core/logger')>();
+  return { ...actual, default: { ...actual.default, error: state.logError } };
+});
 
 const fakeKnex = { raw: (sql: string) => sql } as unknown as Knex;
 
@@ -45,15 +51,24 @@ const CHILD_ROWS = [{
   contact_phone: null,
   email_metadata: null,
 }];
+// Detail rows are keyed by ticket ID so a child send can only show its own rows.
 const TIME_ROWS = [{
+  ticket_id: 'ticket-master',
   entry_id: 'entry-1',
   start_time: '2025-06-10T09:00:00Z',
   end_time: '2025-06-10T10:30:00Z',
   billable_duration: 90,
   technician_name: 'Jane Smith',
+}, {
+  ticket_id: 'ticket-child-1',
+  entry_id: 'entry-2',
+  start_time: '2025-06-11T13:00:00Z',
+  end_time: '2025-06-11T13:45:00Z',
+  billable_duration: 30,
+  technician_name: 'Alex Doe',
 }];
 
-function rowsFor(table: string, criteria: unknown): unknown[] {
+function rowsFor(table: string, criteria: unknown, ticketIds: string[]): unknown[] {
   if (table === 'tickets as t') {
     const where = (criteria ?? {}) as Record<string, unknown>;
     if ('t.ticket_id' in where) return [MASTER_ROW];
@@ -62,23 +77,27 @@ function rowsFor(table: string, criteria: unknown): unknown[] {
   }
   if (table === 'ticket_materials as tm') {
     if (state.materialsFail) throw new Error('Material lookup unavailable');
-    return state.materials;
+    return state.materials.filter((row) => ticketIds.includes(row.ticket_id as string));
   }
-  if (table === 'time_entries as te') return TIME_ROWS;
+  if (table === 'time_entries as te') return TIME_ROWS.filter((row) => ticketIds.includes(row.ticket_id));
   if (table === 'notification_subtypes') return [{ id: 1, category_id: 1 }];
   return [];
 }
 
 function makeBuilder(table: string) {
   let criteria: unknown = {};
-  const rows = () => rowsFor(table, criteria);
+  let ticketIds: string[] = [];
+  const rows = () => rowsFor(table, criteria, ticketIds);
   const builder: any = {
     select: () => builder,
     where: (added: unknown) => {
       criteria = { ...(criteria as object), ...(added as object) };
       return builder;
     },
-    whereIn: () => builder,
+    whereIn: (_column: string, ids: string[]) => {
+      ticketIds = ids;
+      return builder;
+    },
     // The builder is itself thenable, so it works both when awaited directly
     // and when knex-style terminators are chained after it.
     orderBy: () => builder,
@@ -142,9 +161,11 @@ describe('ticket closed email detail delivery', () => {
 
   beforeEach(() => {
     state.materials = [
-      { item_name: 'Toner', description: 'Black', quantity: 2, rate: 4500, currency_code: 'USD', is_billed: true },
+      { ticket_id: 'ticket-master', item_name: 'Toner', description: 'Black', quantity: 2, rate: 4500, currency_code: 'USD', is_billed: true },
+      { ticket_id: 'ticket-child-1', item_name: 'Cable', description: 'USB-C', quantity: 1, rate: 1500, currency_code: 'USD', is_billed: false },
     ];
     state.materialsFail = false;
+    state.logError.mockClear();
     state.hours.mockClear();
     state.hours.mockResolvedValue(765);
     state.sends.length = 0;
@@ -170,8 +191,12 @@ describe('ticket closed email detail delivery', () => {
 
     const child = contactSends[1].context.ticket;
     expect(child.id).toBe(102);
-    expect(child.timeEntries).toEqual(master.timeEntries);
-    expect(child.materialsTotal).toBe('$90.00');
+    expect(child.timeEntries).toEqual([
+      { date: '06/11/2025', technician: 'Alex Doe', worked: '0 hrs 45 min', billable: '0 hrs 30 min' },
+    ]);
+    expect(child.materials).toEqual([expect.objectContaining({ name: 'Cable', amount: '$15.00' })]);
+    expect(child.materialsTotal).toBe('$15.00');
+    expect(child.totalTimeWorked).toBe('0 hrs 45 min');
     expect(child.remainingBlockHours).toBe('12 hrs 45 min');
 
     // Master and child share client-1, so the memoized resolver runs once.
@@ -179,8 +204,8 @@ describe('ticket closed email detail delivery', () => {
     expect(state.hours).toHaveBeenCalledWith(expect.anything(), TENANT, 'client-1');
   });
 
-  it('still sends the close emails with empty details when the detail build fails', async () => {
-    state.materialsFail = true;
+  it('blanks only the materials section of the affected ticket on an unsupported currency', async () => {
+    state.materials[1] = { ...state.materials[1], currency_code: 'BAD' };
 
     await handleTicketClosed(closedEvent());
 
@@ -189,16 +214,24 @@ describe('ticket closed email detail delivery', () => {
       'requester@example.com',
       'child1@example.com',
     ]);
-    for (const send of contactSends) {
-      expect(send.context.ticket).toMatchObject({
-        assets: [],
-        materials: [],
-        materialsTotal: '',
-        timeEntries: [],
-        totalTimeWorked: '0 hrs',
-        totalTimeBillable: '0 hrs',
-        remainingBlockHours: '0 hrs',
-      });
-    }
+    expect(contactSends[0].context.ticket.materialsTotal).toBe('$90.00');
+    expect(contactSends[1].context.ticket).toMatchObject({
+      materials: [],
+      materialsTotal: '',
+      totalTimeWorked: '0 hrs 45 min',
+      remainingBlockHours: '12 hrs 45 min',
+    });
+    expect(contactSends[1].context.ticket.timeEntries).toHaveLength(1);
+    expect(state.logError).toHaveBeenCalledWith(
+      expect.stringContaining('materials'),
+      expect.objectContaining({ tenant: TENANT, ticketId: 'ticket-child-1', section: 'materials' }),
+    );
+  });
+
+  it('surfaces detail query failures instead of sending without details', async () => {
+    state.materialsFail = true;
+
+    await expect(handleTicketClosed(closedEvent())).rejects.toThrow('Material lookup unavailable');
+    expect(state.sends.filter((send) => send.template === 'ticket-closed')).toHaveLength(0);
   });
 });

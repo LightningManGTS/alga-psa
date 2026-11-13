@@ -13,7 +13,7 @@ import {
 import { sendEventEmail, SendEmailParams } from '../../notifications/sendEventEmail';
 import {
   buildTicketEmailDetailBlocks,
-  emptyTicketEmailDetailBlocks,
+  buildTicketEmailDetailBlocksForTickets,
   type HourBlockMinutesResolver,
 } from '../../notifications/ticketEmailDetailBlocks';
 import { resolveCoManagedCommentStep, audienceRecipients, coManagedSendFields } from '../../notifications/coManagedCommentDelivery';
@@ -3655,18 +3655,11 @@ async function handleTicketClosed(event: TicketClosedEvent): Promise<void> {
       return lookup;
     };
 
-    // Detail blocks are supplemental: a billing-side failure (e.g. an
-    // unsupported material currency) must not stop the close notification.
+    // Bad row data only blanks the affected section (logged by the builder);
+    // query failures propagate like every other lookup in this handler.
     const detailBlocks = await buildTicketEmailDetailBlocks(
       db, tenantId, ticket.ticket_id, ticket.client_id, emailTimeZone, resolveHourBlockMinutes,
-    ).catch((error) => {
-      logger.warn('[TicketEmailSubscriber] Failed to build ticket email detail blocks; sending without details:', {
-        ticketId: ticket.ticket_id,
-        tenantId,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      });
-      return emptyTicketEmailDetailBlocks();
-    });
+    );
     const baseTicketContext = {
       id: ticket.ticket_number,
       title: ticket.title,
@@ -3846,6 +3839,13 @@ async function handleTicketClosed(event: TicketClosedEvent): Promise<void> {
 
       if (bundleChildren.length > 0) {
         const bundlePortalCtx = await resolvePortalLinkContext(db, tenantId);
+        const childDetailBlocksByTicket = await buildTicketEmailDetailBlocksForTickets(
+          db,
+          tenantId,
+          bundleChildren.map((child) => ({ ticketId: child.ticket_id, clientId: child.client_id })),
+          emailTimeZone,
+          resolveHourBlockMinutes,
+        );
         for (const child of bundleChildren) {
           const childPrimaryEmail = safeString(child.contact_email) || safeString(child.client_email);
           if (!childPrimaryEmail) continue;
@@ -3860,16 +3860,10 @@ async function handleTicketClosed(event: TicketClosedEvent): Promise<void> {
           }
 
           const { portalUrl: childPortalUrl } = buildTicketLinks(bundlePortalCtx, child.ticket_id);
-          const childDetailBlocks = await buildTicketEmailDetailBlocks(
-            db, tenantId, child.ticket_id, child.client_id, emailTimeZone, resolveHourBlockMinutes,
-          ).catch((error) => {
-            logger.warn('[TicketEmailSubscriber] Failed to build bundled child detail blocks; sending without details:', {
-              ticketId: child.ticket_id,
-              tenantId,
-              error: error instanceof Error ? error.message : 'Unknown error',
-            });
-            return emptyTicketEmailDetailBlocks();
-          });
+          const childDetailBlocks = childDetailBlocksByTicket.get(child.ticket_id);
+          if (!childDetailBlocks) {
+            throw new Error(`Ticket email details missing for bundled child ticket ${child.ticket_id} (tenant ${tenantId})`);
+          }
 
           await sendIfUnique({
             tenantId,

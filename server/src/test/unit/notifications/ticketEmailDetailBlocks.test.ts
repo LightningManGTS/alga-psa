@@ -11,7 +11,12 @@ const state = vi.hoisted(() => ({
   tenant: vi.fn(),
   joins: vi.fn(),
   where: vi.fn(),
+  whereIn: vi.fn(),
   hours: vi.fn(),
+  logError: vi.fn(),
+}));
+vi.mock('@alga-psa/core/logger', () => ({
+  default: { error: state.logError, warn: vi.fn(), info: vi.fn(), debug: vi.fn() },
 }));
 vi.mock('@alga-psa/shared/billingClients/hourBlockService', () => ({
   getAvailableHourBlockMinutes: state.hours,
@@ -24,21 +29,35 @@ vi.mock('@alga-psa/db', () => ({
       table: (table: string) => {
         const rows = table.startsWith('asset_') ? state.assets
           : table.startsWith('ticket_materials') ? state.materials : state.time;
+        let ticketIds: string[] = [];
         const builder = {
           select: () => builder,
           where: (criteria: unknown) => { state.where(criteria); return builder; },
-          orderBy: () => Promise.resolve(rows),
+          whereIn: (column: string, ids: string[]) => {
+            state.whereIn(column, ids);
+            ticketIds = ids;
+            return builder;
+          },
+          // Fixture rows default to ticket-1; batch tests set ticket_id explicitly.
+          orderBy: () => Promise.resolve(rows
+            .map(row => ({ ticket_id: 'ticket-1', ...row }))
+            .filter(row => ticketIds.includes(row.ticket_id as string))),
         };
         return builder;
       },
     };
   },
 }));
-import { buildTicketEmailDetailBlocks, sortTimeEntriesChronologically } from '../../../lib/notifications/ticketEmailDetailBlocks';
+import {
+  buildTicketEmailDetailBlocks,
+  buildTicketEmailDetailBlocksForTickets,
+  sortTimeEntriesChronologically,
+} from '../../../lib/notifications/ticketEmailDetailBlocks';
 
 const knex = { raw: vi.fn() } as Pick<Knex, 'raw'> as Knex;
 const root = path.resolve(__dirname, '../../../../..');
-const build = () => buildTicketEmailDetailBlocks(knex, 'tenant-1', 'ticket-1', 'client-1');
+// Pinned to UTC so date expectations do not depend on the host timezone.
+const build = () => buildTicketEmailDetailBlocks(knex, 'tenant-1', 'ticket-1', 'client-1', 'UTC');
 
 describe('closed-ticket email detail data', () => {
   beforeEach(() => {
@@ -84,10 +103,26 @@ describe('closed-ticket email detail data', () => {
     expect(data.materialsTotal).toBe('$90.00 + €10.00');
   });
 
-  it('rejects invalid material currency and propagates lookup failures', async () => {
+  it('blanks only the materials section on an unsupported currency and logs the ticket', async () => {
     state.materials = [{ item_name: 'Toner', quantity: 1, rate: 1000, currency_code: 'BAD' }];
-    await expect(build()).rejects.toThrow('unsupported material currency');
-    state.materials = [];
+    state.time = [{ entry_id: '1', start_time: '2025-06-10T09:00:00Z', end_time: '2025-06-10T10:00:00Z', billable_duration: 60, technician_name: 'Jane Smith' }];
+    state.assets = [{ asset_tag: 'A-1', name: 'Printer' }];
+    const data = await build();
+    expect(data.materials).toEqual([]);
+    expect(data.materialsTotal).toBe('');
+    expect(data.timeEntries).toHaveLength(1);
+    expect(data.totalTimeWorked).toBe('1 hr');
+    expect(data.assets).toHaveLength(1);
+    expect(state.logError).toHaveBeenCalledTimes(1);
+    expect(state.logError.mock.calls[0][1]).toMatchObject({
+      tenant: 'tenant-1',
+      ticketId: 'ticket-1',
+      section: 'materials',
+      error: expect.stringContaining('unsupported material currency "BAD"'),
+    });
+  });
+
+  it('propagates lookup failures', async () => {
     state.hours.mockRejectedValueOnce(new Error('Hour-block database unavailable'));
     await expect(build()).rejects.toThrow('Hour-block database unavailable');
   });
@@ -124,7 +159,8 @@ describe('closed-ticket email detail data', () => {
   it('uses the existing effective timezone for the work date', async () => {
     state.time = [{ entry_id: '1', start_time: '2025-06-10T01:00:00Z', end_time: '2025-06-10T02:00:00Z', billable_duration: null, technician_name: null }];
     const data = await buildTicketEmailDetailBlocks(knex, 'tenant-1', 'ticket-1', null, 'America/New_York');
-    expect(data.timeEntries[0].date).toBe('06/09/2025');
+    expect(data.timeEntries[0]).toEqual({ date: '06/09/2025', technician: '', worked: '1 hr', billable: '0 hrs' });
+    expect(data.totalTimeBillable).toBe('0 hrs');
     expect(data.remainingBlockHours).toBe('0 hrs');
     expect(state.hours).not.toHaveBeenCalled();
   });
@@ -143,6 +179,29 @@ describe('closed-ticket email detail data', () => {
     expect(state.tenant).toHaveBeenCalledTimes(3);
     for (const call of state.tenant.mock.calls) expect(call).toEqual([knex, 'tenant-1']);
     expect(state.joins.mock.calls.map(call => call[1])).toEqual(['assets as a', 'asset_type_registry as atr', 'service_catalog as sc', 'users as u']);
-    expect(state.where).toHaveBeenCalledWith({ 'te.work_item_id': 'ticket-1', 'te.work_item_type': 'ticket' });
+    expect(state.whereIn).toHaveBeenCalledWith('te.work_item_id', ['ticket-1']);
+    expect(state.where).toHaveBeenCalledWith({ 'te.work_item_type': 'ticket' });
+  });
+
+  it('batches detail queries for several tickets and keeps each ticket to its own rows', async () => {
+    state.materials = [
+      { ticket_id: 'ticket-1', item_name: 'Toner', quantity: 1, rate: 4500, currency_code: 'USD', is_billed: false },
+      { ticket_id: 'ticket-2', item_name: 'Cable', quantity: 2, rate: 1000, currency_code: 'USD', is_billed: false },
+    ];
+    state.time = [
+      { ticket_id: 'ticket-2', entry_id: '2', start_time: '2025-06-10T09:00:00Z', end_time: '2025-06-10T09:30:00Z', billable_duration: 30, technician_name: 'Kim' },
+    ];
+    const blocks = await buildTicketEmailDetailBlocksForTickets(knex, 'tenant-1', [
+      { ticketId: 'ticket-1', clientId: 'client-1' },
+      { ticketId: 'ticket-2', clientId: null },
+    ], 'UTC');
+    expect(state.tenant).toHaveBeenCalledTimes(3);
+    expect(state.whereIn).toHaveBeenCalledWith('tm.ticket_id', ['ticket-1', 'ticket-2']);
+    expect(blocks.get('ticket-1')).toMatchObject({ materialsTotal: '$45.00', timeEntries: [], remainingBlockHours: '12 hrs 45 min' });
+    expect(blocks.get('ticket-2')).toMatchObject({
+      materialsTotal: '$20.00',
+      timeEntries: [{ date: '06/10/2025', technician: 'Kim', worked: '0 hrs 30 min', billable: '0 hrs 30 min' }],
+      remainingBlockHours: '0 hrs',
+    });
   });
 });
