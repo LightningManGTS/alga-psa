@@ -1019,6 +1019,14 @@ export const templateVariableSeed: TemplateVariableSeedCategory[] = [
             "notes": "Built from NEXTAUTH_URL or NEXT_PUBLIC_APP_URL at send time; wrapped in {{#if portalLink}}."
           },
           {
+            "path": "quoteReviewLink",
+            "type": "url",
+            "description": "Per-recipient link to review and approve the quote without signing in; empty when the tenant has turned email-link review off.",
+            "example": "https://app.example.com/quote/Qm9n0xv3kP2s5Yh8TqLw1AaBcDeFgHiJkLmNoPqRsTu",
+            "availability": "used",
+            "notes": "Unique to each recipient. When present it is the primary call-to-action and portalLink becomes a secondary link shown only to recipients with client-portal access; wrapped in {{#if quoteReviewLink}}."
+          },
+          {
             "path": "customMessage",
             "type": "string",
             "description": "Optional free-text note from the MSP shown in a highlighted box; the box is hidden when empty.",
@@ -1070,6 +1078,14 @@ export const templateVariableSeed: TemplateVariableSeedCategory[] = [
             "example": "https://app.example.com/client-portal/billing?tab=quotes",
             "availability": "used",
             "notes": "Built from NEXTAUTH_URL or NEXT_PUBLIC_APP_URL at send time; wrapped in {{#if portalLink}}."
+          },
+          {
+            "path": "quoteReviewLink",
+            "type": "url",
+            "description": "Per-recipient link to review and approve the quote without signing in; empty when the tenant has turned email-link review off.",
+            "example": "https://app.example.com/quote/Qm9n0xv3kP2s5Yh8TqLw1AaBcDeFgHiJkLmNoPqRsTu",
+            "availability": "used",
+            "notes": "Unique to each recipient. When present it is the primary call-to-action and portalLink becomes a secondary link shown only to recipients with client-portal access; wrapped in {{#if quoteReviewLink}}."
           },
           {
             "path": "customMessage",
@@ -4892,7 +4908,7 @@ export const sharedBlockSeed: SharedVariableBlockSeed[] = [
         "description": "Name shown as the sending organization in the footer / header.",
         "example": "Wolf River IT",
         "availability": "used",
-        "notes": "VARIANTS for the same slot: tenantClientName (auth email-verification, from tenants.client_name), clientName (auth password-reset footer, from the passed org), tenant_name (surveys, tenant.client_name||tenant.name, default 'Your Team'), company.name (invoices/billing MSP sender). These are NOT interchangeable across categories - see client block for the client-vs-MSP-company collision."
+        "notes": "VARIANTS for the same slot: tenantClientName (auth email-verification, from tenants.client_name), clientName (auth password-reset footer, from the passed org), tenantName (auth portal-invitation subject + footer, from the tenant's default client), tenant_name (surveys, tenant.client_name||tenant.name, default 'Your Team'), company.name (invoices/billing MSP sender). These are NOT interchangeable across categories - see client block for the client-vs-MSP-company collision."
       },
       {
         "path": "platformName",
