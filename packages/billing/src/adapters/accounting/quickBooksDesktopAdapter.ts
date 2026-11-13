@@ -931,10 +931,11 @@ export class QuickBooksDesktopAdapter implements AccountingExportAdapter {
 
   /**
    * The shared allocation expansion exports every fixed-plan member as one unit
-   * at its allocated amount. A "recurring seats/units" member bills quantity ×
-   * unit rate, so its Desktop split carries the stored seat count and rate when
-   * they multiply back to the allocation exactly; a prorated period keeps the
-   * single-unit line. Bundle-priced members are left as expanded.
+   * at its allocated amount. The member's stored detail row keeps the billed
+   * quantity and per-unit rate regardless of pricing basis, so any member
+   * whose quantity × rate reproduces its allocation exactly exports at that
+   * quantity and rate; a prorated period, whose allocation no longer matches
+   * the product, keeps the single-unit line.
    */
   private async applyRecurringSeatQuantities(
     knex: Knex,
@@ -942,49 +943,25 @@ export class QuickBooksDesktopAdapter implements AccountingExportAdapter {
     charges: Map<string, DbCharge>,
     lines: AccountingExportAdapterContext['lines']
   ): Promise<void> {
-    const parentByDetailId = new Map<string, string>();
+    const detailIds = new Set<string>();
     for (const line of lines) {
       const metadata = line.payload?.metadata as Record<string, unknown> | undefined;
-      const detailId = metadata?.allocation_detail_id;
-      const parentId = metadata?.allocation_parent_charge_id;
-      if (typeof detailId === 'string' && typeof parentId === 'string') {
-        parentByDetailId.set(detailId, parentId);
+      if (typeof metadata?.allocation_detail_id === 'string'
+        && typeof metadata?.allocation_parent_charge_id === 'string') {
+        detailIds.add(metadata.allocation_detail_id);
       }
     }
-    if (parentByDetailId.size === 0) {
+    if (detailIds.size === 0) {
       return;
     }
 
-    const db = tenantDb(knex, tenantId);
-    // The invoice-time bundle snapshot is authoritative; invoices generated
-    // before it existed fall back to the member's configured pricing basis.
-    const parents = await db.table('invoice_charges')
-      .whereIn('item_id', Array.from(new Set(parentByDetailId.values())))
-      .select('item_id', 'bundle_presentation');
-    const snapshotBasis = new Map<string, unknown>();
-    for (const parent of parents) {
-      const presentation = typeof parent.bundle_presentation === 'string'
-        ? JSON.parse(parent.bundle_presentation)
-        : parent.bundle_presentation;
-      for (const component of presentation?.components ?? []) {
-        for (const detailId of component.detailItemIds ?? []) {
-          snapshotBasis.set(detailId, component.pricingBasis);
-        }
-      }
-    }
-
-    const query = db.table('invoice_charge_details as d');
-    db.tenantJoin(query, 'contract_line_service_fixed_config as f', 'f.config_id', 'd.config_id', { type: 'left' });
-    const details = await query
-      .whereIn('d.item_detail_id', Array.from(parentByDetailId.keys()))
-      .select('d.item_detail_id', 'd.quantity', 'd.rate', 'f.pricing_basis');
+    const details = await tenantDb(knex, tenantId).table('invoice_charge_details as d')
+      .whereIn('d.item_detail_id', Array.from(detailIds))
+      .select('d.item_detail_id', 'd.quantity', 'd.rate');
 
     for (const detail of details) {
-      const basis = snapshotBasis.has(detail.item_detail_id)
-        ? snapshotBasis.get(detail.item_detail_id)
-        : detail.pricing_basis;
       const charge = charges.get(detail.item_detail_id);
-      if (basis !== 'unit' || !charge) {
+      if (!charge) {
         continue;
       }
       const quantity = Number(detail.quantity);

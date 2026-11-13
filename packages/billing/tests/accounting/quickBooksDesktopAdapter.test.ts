@@ -481,7 +481,7 @@ describe('QuickBooksDesktopAdapter IIF transform', () => {
       rows.filter((r) => r[0] === 'SPL').map((r) => [field(rows, '!SPL', r, 'INVITEM'), r])
     );
 
-    it('exports recurring seats as their seat count and unit rate, leaving bundle and prorated members as one unit', async () => {
+    it('exports members at their stored quantity and rate, leaving prorated members as one unit', async () => {
       harness.rows.invoice_charges = [plan(28795, {
         components: [component('d-seat', 'unit'), component('d-bundle', 'bundle'), component('d-prorated', 'unit')]
       })];
@@ -498,18 +498,18 @@ describe('QuickBooksDesktopAdapter IIF transform', () => {
       expect(field(rows, '!SPL', spl.get('svc-seat')!, 'QNTY')).toBe('-4');
       expect(field(rows, '!SPL', spl.get('svc-seat')!, 'PRICE')).toBe('47.99');
       expect(field(rows, '!SPL', spl.get('svc-seat')!, 'AMOUNT')).toBe('-191.96');
-      expect(field(rows, '!SPL', spl.get('svc-bundle')!, 'QNTY')).toBe('-1');
-      expect(field(rows, '!SPL', spl.get('svc-bundle')!, 'PRICE')).toBe('40.00');
+      expect(field(rows, '!SPL', spl.get('svc-bundle')!, 'QNTY')).toBe('-2');
+      expect(field(rows, '!SPL', spl.get('svc-bundle')!, 'PRICE')).toBe('20.00');
       expect(field(rows, '!SPL', spl.get('svc-prorated')!, 'QNTY')).toBe('-1');
       expect(field(rows, '!SPL', spl.get('svc-prorated')!, 'PRICE')).toBe('55.99');
       expect(field(rows, '!TRNS', rows.find((r) => r[0] === 'TRNS')!, 'AMOUNT')).toBe('287.95');
     });
 
-    it('falls back to the configured pricing basis for invoices without a bundle snapshot', async () => {
+    it('passes a bundle-priced service seat quantity through even without a bundle snapshot', async () => {
       harness.rows.invoice_charges = [plan(23196, null)];
       harness.rows['invoice_charge_details as d'] = [
-        detail('d-seat', 'svc-seat', 4, 4799, 19196, 'unit'),
-        detail('d-bundle', 'svc-bundle', 2, 2000, 4000, null)
+        detail('d-seat', 'svc-seat', 4, 4799, 19196, 'bundle'),
+        detail('d-bundle', 'svc-bundle', 1, 4000, 4000, null)
       ];
 
       const { rows } = await transformContent(
@@ -517,6 +517,7 @@ describe('QuickBooksDesktopAdapter IIF transform', () => {
       );
       const spl = splByItem(rows);
       expect(field(rows, '!SPL', spl.get('svc-seat')!, 'QNTY')).toBe('-4');
+      expect(field(rows, '!SPL', spl.get('svc-seat')!, 'PRICE')).toBe('47.99');
       expect(field(rows, '!SPL', spl.get('svc-bundle')!, 'QNTY')).toBe('-1');
       expect(field(rows, '!SPL', spl.get('svc-bundle')!, 'PRICE')).toBe('40.00');
     });
