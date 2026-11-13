@@ -2,10 +2,9 @@
 
 import { Knex } from 'knex';
 import { v4 as uuidv4 } from 'uuid';
-import { createTenantKnex, tenantDb, withTransaction } from '@alga-psa/db';
+import { createTenantKnex, tenantDb, withTransaction, resolveTenantToday } from '@alga-psa/db';
 import { withAuth } from '@alga-psa/auth';
 import { hasPermission } from '@alga-psa/auth/rbac';
-import { Temporal } from '@js-temporal/polyfill';
 import type {
   IHourBlock,
   IHourBlockAllocation,
@@ -186,6 +185,11 @@ export interface CreateHourBlockPurchaseInvoiceInternalInput {
   service: DbRow;
   currencyCode: string;
   dueDate: string;
+  /**
+   * Invoice date (YYYY-MM-DD) the due date was derived from. When absent, the
+   * tenant-local today is resolved inside the transaction.
+   */
+  invoiceDate?: string;
   taxSource: unknown;
   invoiceNumber: string;
   createdBy: string | null;
@@ -214,6 +218,7 @@ export async function createHourBlockPurchaseInvoiceInternal(
     service,
     currencyCode,
     dueDate,
+    invoiceDate,
     taxSource,
     invoiceNumber,
     createdBy,
@@ -227,7 +232,7 @@ export async function createHourBlockPurchaseInvoiceInternal(
     invoice_id: invoiceId,
     tenant,
     client_id: clientId,
-    invoice_date: Temporal.Now.plainDateISO().toString(),
+    invoice_date: invoiceDate ?? (await resolveTenantToday(trx, tenant)).toString(),
     due_date: dueDate,
     invoice_number: invoiceNumber,
     status: 'draft',
@@ -324,7 +329,7 @@ export const createHourBlockPurchaseInvoice = withAuth(async (
       }
 
       const currencyCode = client.default_currency_code || 'USD';
-      const currentDate = Temporal.Now.plainDateISO().toString();
+      const currentDate = (await resolveTenantToday(trx, tenant)).toString();
       const dueDate = await getDueDate(clientId, currentDate);
       if (isActionError(dueDate)) throw new Error(getErrorMessage(dueDate));
       const taxSource = await getInitialInvoiceTaxSource(clientId);
@@ -344,6 +349,7 @@ export const createHourBlockPurchaseInvoice = withAuth(async (
         service,
         currencyCode,
         dueDate,
+        invoiceDate: currentDate,
         taxSource,
         invoiceNumber: await generateInvoiceNumber(),
         createdBy: user.user_id,

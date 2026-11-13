@@ -39,6 +39,14 @@ export interface ClientResolverRegistry {
     discriminator: string,
     id: string
   ): Promise<string | null>;
+  /** Bulk row facet. Ids of an unknown resolver or discriminator map to null. */
+  resolveClients(
+    db: Knex | Knex.Transaction,
+    tenant: string,
+    resolver: string,
+    discriminator: string,
+    ids: readonly string[]
+  ): Promise<Map<string, string | null>>;
   /** SQL facet. Narrows `builder` to rows owned by `clientIds`; matches nothing for an empty set or unknown resolver. */
   applyClients(
     builder: Knex.QueryBuilder,
@@ -46,6 +54,13 @@ export interface ClientResolverRegistry {
     columns: PolymorphicRowColumns,
     clientIds: readonly string[]
   ): void;
+  /**
+   * SQL facet. Narrows `builder` to rows that have NO client: every registered kind either does not match the
+   * row's discriminator or points at a record with no client (or no record). The complement of "owned by any
+   * client", so it is exactly the rows `resolveClient` answers null for. An unknown resolver owns nothing, so
+   * every row is unowned. Whoever composes this decides who may see such rows; it never grants anything alone.
+   */
+  applyUnowned(builder: Knex.QueryBuilder, resolver: string, columns: PolymorphicRowColumns): void;
 }
 
 export function createClientResolverRegistry(
@@ -69,6 +84,11 @@ export function createClientResolverRegistry(
       const entry = resolvers.get(resolver)?.get(discriminator);
       return entry ? entry.resolveClient(db, tenant, id) : null;
     },
+    async resolveClients(db, tenant, resolver, discriminator, ids) {
+      const entry = resolvers.get(resolver)?.get(discriminator);
+      if (entry) return entry.resolveClients(db, tenant, ids);
+      return new Map(ids.map((id): [string, string | null] => [id, null]));
+    },
     applyClients(builder, resolver, columns, clientIds) {
       const entries = resolvers.get(resolver);
       if (!entries || entries.size === 0 || clientIds.length === 0) {
@@ -80,6 +100,19 @@ export function createClientResolverRegistry(
           this.orWhere(function oneKind(this: Knex.QueryBuilder) {
             this.where(columns.discriminatorRef, discriminator).whereExists(function ownedByClients(this: Knex.QueryBuilder) {
               entry.narrowToClients(this, { tenantRef: columns.tenantRef, idRef: columns.idRef }, clientIds);
+            });
+          });
+        }
+      });
+    },
+    applyUnowned(builder, resolver, columns) {
+      const entries = resolvers.get(resolver);
+      if (!entries || entries.size === 0) return;
+      builder.where(function noKnownKindOwnsIt(this: Knex.QueryBuilder) {
+        for (const [discriminator, entry] of entries) {
+          this.whereNot(function ownedByAnyClient(this: Knex.QueryBuilder) {
+            this.where(columns.discriminatorRef, discriminator).whereExists(function hasClient(this: Knex.QueryBuilder) {
+              entry.narrowToOwned(this, { tenantRef: columns.tenantRef, idRef: columns.idRef });
             });
           });
         }
@@ -108,14 +141,36 @@ export function polymorphicClientsHook(
   alias: string,
   registry: ClientResolverRegistry = clientResolvers
 ): (builder: Knex.QueryBuilder, clientIds: string[]) => void {
+  const { resolver, columns } = resolverOwnership(table, alias);
+  return (builder, clientIds) => registry.applyClients(builder, resolver, columns, clientIds);
+}
+
+/**
+ * The complement of `polymorphicClientsHook`: narrows to the table's rows that have no client.
+ * A resource whose policy lets someone see their own client-less rows composes it:
+ *
+ *   builder.where(function () { clients(this, ids); this.orWhere(function () { unowned(this); this.where('te.user_id', me); }); })
+ */
+export function polymorphicUnownedHook(
+  table: string,
+  alias: string,
+  registry: ClientResolverRegistry = clientResolvers
+): (builder: Knex.QueryBuilder) => void {
+  const { resolver, columns } = resolverOwnership(table, alias);
+  return (builder) => registry.applyUnowned(builder, resolver, columns);
+}
+
+function resolverOwnership(table: string, alias: string): { resolver: string; columns: PolymorphicRowColumns } {
   const ownership = tenantClientOwnership(table);
   if (!ownership || ownership.by !== 'resolver') {
     throw new Error(`Table '${table}' is not declared as client-owned by a resolver in the tenant table manifest`);
   }
-  const columns: PolymorphicRowColumns = {
-    tenantRef: `${alias}.tenant`,
-    discriminatorRef: `${alias}.${ownership.discriminator}`,
-    idRef: `${alias}.${ownership.id}`,
+  return {
+    resolver: ownership.resolver,
+    columns: {
+      tenantRef: `${alias}.tenant`,
+      discriminatorRef: `${alias}.${ownership.discriminator}`,
+      idRef: `${alias}.${ownership.id}`,
+    },
   };
-  return (builder, clientIds) => registry.applyClients(builder, ownership.resolver, columns, clientIds);
 }
