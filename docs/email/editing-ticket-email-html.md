@@ -1,4 +1,4 @@
-# Ticket-closed detail variables (1/3)
+# Ticket-closed detail variables 
 
 The existing `ticket-closed` notification exposes plain-data arrays for custom
 templates. Stock templates, notification routing and existing translations are
@@ -305,6 +305,4 @@ Remaining prepaid hours: {{ticket.remainingBlockHours}}
 ```
 
 Use the same `{{#each ticket.assets}}` or `{{#each ticket.materials}}` pattern
-for those arrays. There are no `assetsHtml`, `materialsHtml` or `timeHtml`
-variables. Existing personal templates using those experimental variables must
-replace them with array loops before using the narrowed implementation.
+for those arrays.
