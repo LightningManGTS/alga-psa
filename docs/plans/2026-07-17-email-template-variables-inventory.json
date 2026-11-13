@@ -816,8 +816,10 @@
     {
      "templateName": "portal-invitation",
      "sourceFile": "server/migrations/utils/templates/email/auth/portalInvitation.cjs",
-     "subject": "Portal Invitation - {{tenantName}}",
-     "conditionals": [],
+     "subject": "Portal Invitation - {{clientName}}",
+     "conditionals": [
+      "clientName"
+     ],
      "variables": [
       {
        "path": "contactName",
@@ -830,18 +832,10 @@
       {
        "path": "clientName",
        "type": "string",
-       "description": "The recipient's client company, whose customer portal they are being invited to.",
+       "description": "The client/company whose customer portal the recipient is being invited to.",
        "example": "Acme Corporation",
        "availability": "used",
-       "notes": "Used in the invitation introduction."
-      },
-      {
-       "path": "tenantName",
-       "type": "string",
-       "description": "The MSP sending the invitation.",
-       "example": "Northwind Managed Services",
-       "availability": "used",
-       "notes": "Used in the subject and footer copyright. Defaults to clientName when omitted."
+       "notes": "Used in subject, intro, and footer copyright. Also an {{#if clientName}} condition in the Polish subject."
       },
       {
        "path": "portalLink",
@@ -860,36 +854,20 @@
        "notes": "Used in the time-sensitive warning box and its text equivalent."
       },
       {
-       "path": "supportEmail",
-       "type": "string",
-       "description": "The MSP's support email, shown in the Need Assistance box and footer.",
-       "example": "support@northwind.example",
-       "availability": "used",
-       "notes": "Defaults to 'Not provided' when omitted. The caller's support email is also passed as replyTo."
-      },
-      {
-       "path": "supportPhone",
-       "type": "string",
-       "description": "The MSP's support phone number, shown in the Need Assistance box.",
-       "example": "+1 (555) 010-1234",
-       "availability": "used",
-       "notes": "Defaults to 'Not provided' when omitted."
-      },
-      {
        "path": "clientLocationEmail",
        "type": "string",
-       "description": "Legacy alias for the MSP's support email.",
-       "example": "support@northwind.example",
-       "availability": "available-unused",
-       "notes": "Kept for older saved templates; has the same value as supportEmail."
+       "description": "The client location's contact email, shown in the Need Assistance box and footer (also the email Reply-To).",
+       "example": "support@acme.com",
+       "availability": "used",
+       "notes": "Defaults to 'Not provided' when the caller omits it. Used in contact-info Email, footerUnexpected, and text. Also passed as replyTo."
       },
       {
        "path": "clientLocationPhone",
        "type": "string",
-       "description": "Legacy alias for the MSP's support phone number.",
+       "description": "The client location's contact phone number, shown in the Need Assistance box.",
        "example": "+1 (555) 010-1234",
-       "availability": "available-unused",
-       "notes": "Kept for older saved templates; has the same value as supportPhone."
+       "availability": "used",
+       "notes": "Defaults to 'Not provided' when the caller omits it. Used in contact-info Phone and text."
       },
       {
        "path": "currentYear",
@@ -900,7 +878,9 @@
        "notes": "Set to new Date().getFullYear() at send time."
       }
      ],
-     "uncertainties": []
+     "uncertainties": [
+      "The preview sample data in templateSampleData.ts for 'portal-invitation' is stale/mismatched: it defines invitedEmail, inviterName, clientName, invitationLink, expirationTime, whereas the shipped template and the send-time templateData actually use contactName, portalLink, clientLocationEmail, clientLocationPhone (only clientName and expirationTime overlap). Preview keys inviterName/invitedEmail/invitationLink do not correspond to any variable in the template."
+     ]
     },
     {
      "templateName": "tenant-recovery",
@@ -1109,8 +1089,7 @@
      "subject": "Quote {{quote.number}} from {{company.name}}",
      "conditionals": [
       "customMessage",
-      "portalLink",
-      "quoteReviewLink"
+      "portalLink"
      ],
      "uncertainties": [
       "Send-time data object assembled in packages/billing/src/actions/quoteActions.ts (renderQuoteEmail templateContext). A tenant override in tenant_email_templates wins over the system template; when neither row exists the in-code builders in packages/billing/src/lib/quote-email-templates.ts render instead."
@@ -1155,14 +1134,6 @@
        "example": "https://app.example.com/client-portal/billing?tab=quotes",
        "availability": "used",
        "notes": "Built from NEXTAUTH_URL or NEXT_PUBLIC_APP_URL at send time; wrapped in {{#if portalLink}}."
-      },
-      {
-       "path": "quoteReviewLink",
-       "type": "url",
-       "description": "Per-recipient link to review and approve the quote without signing in; empty when the tenant has turned email-link review off.",
-       "example": "https://app.example.com/quote/Qm9n0xv3kP2s5Yh8TqLw1AaBcDeFgHiJkLmNoPqRsTu",
-       "availability": "used",
-       "notes": "Unique to each recipient. When present it is the primary call-to-action and portalLink becomes a secondary link shown only to recipients with client-portal access; wrapped in {{#if quoteReviewLink}}."
       },
       {
        "path": "customMessage",
@@ -1180,8 +1151,7 @@
      "subject": "Reminder: Quote {{quote.number}} expires on {{quote.validUntil}}",
      "conditionals": [
       "customMessage",
-      "portalLink",
-      "quoteReviewLink"
+      "portalLink"
      ],
      "uncertainties": [
       "Send-time data object assembled in packages/billing/src/actions/quoteActions.ts (renderQuoteEmail templateContext). A tenant override in tenant_email_templates wins over the system template; when neither row exists the in-code builders in packages/billing/src/lib/quote-email-templates.ts render instead."
@@ -1226,14 +1196,6 @@
        "example": "https://app.example.com/client-portal/billing?tab=quotes",
        "availability": "used",
        "notes": "Built from NEXTAUTH_URL or NEXT_PUBLIC_APP_URL at send time; wrapped in {{#if portalLink}}."
-      },
-      {
-       "path": "quoteReviewLink",
-       "type": "url",
-       "description": "Per-recipient link to review and approve the quote without signing in; empty when the tenant has turned email-link review off.",
-       "example": "https://app.example.com/quote/Qm9n0xv3kP2s5Yh8TqLw1AaBcDeFgHiJkLmNoPqRsTu",
-       "availability": "used",
-       "notes": "Unique to each recipient. When present it is the primary call-to-action and portalLink becomes a secondary link shown only to recipients with client-portal access; wrapped in {{#if quoteReviewLink}}."
       },
       {
        "path": "customMessage",
@@ -5383,7 +5345,7 @@
       "description": "Name shown as the sending organization in the footer / header.",
       "example": "Wolf River IT",
       "availability": "used",
-      "notes": "VARIANTS for the same slot: tenantClientName (auth email-verification, from tenants.client_name), clientName (auth password-reset footer, from the passed org), tenantName (auth portal-invitation subject + footer, from the tenant's default client), tenant_name (surveys, tenant.client_name||tenant.name, default 'Your Team'), company.name (invoices/billing MSP sender). These are NOT interchangeable across categories - see client block for the client-vs-MSP-company collision."
+      "notes": "VARIANTS for the same slot: tenantClientName (auth email-verification, from tenants.client_name), clientName (auth password-reset footer, from the passed org), tenant_name (surveys, tenant.client_name||tenant.name, default 'Your Team'), company.name (invoices/billing MSP sender). These are NOT interchangeable across categories - see client block for the client-vs-MSP-company collision."
      },
      {
       "path": "platformName",
@@ -5409,7 +5371,7 @@
       "description": "Support email address the recipient can reach out to (often also set as Reply-To).",
       "example": "support@acme-it.com",
       "availability": "used",
-      "notes": "VARIANTS: supportEmail (auth password-reset and portal-invitation, also replyTo), with clientLocationEmail retained as a portal-invitation alias. Assembled-but-unused in new-appointment-request (staff template)."
+      "notes": "VARIANTS: supportEmail (auth password-reset, also replyTo), clientLocationEmail (auth portal-invitation, defaults 'Not provided', also replyTo). Assembled-but-unused in new-appointment-request (staff template)."
      },
      {
       "path": "contactPhone",
@@ -5417,7 +5379,7 @@
       "description": "Support phone number, shown only when provided.",
       "example": "+1 (555) 010-1234",
       "availability": "used",
-      "notes": "Optional; every appointment template guards it with {{#if contactPhone}}. VARIANT: supportPhone (auth portal-invitation, with clientLocationPhone retained as an alias)."
+      "notes": "Optional; every appointment template guards it with {{#if contactPhone}}. VARIANT: clientLocationPhone (auth portal-invitation, defaults 'Not provided')."
      }
     ]
    },
