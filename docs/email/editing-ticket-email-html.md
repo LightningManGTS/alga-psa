@@ -21,6 +21,10 @@ use `MM/DD/YYYY` in the email's existing effective timezone; rows are ordered by
 work timestamp, technician and entry ID. Multiple entries for the same technician
 remain separate. No translation lookup or HTML rendering is performed.
 
+When a ticket has no materials, `ticket.materialsTotal` is an empty string.
+The time totals and remaining balance are non-empty duration strings, including
+`0 hrs`, so guard the tables with their arrays rather than those totals.
+
 ## Two editable HTML examples
 
 These illustrations use the email-template preview component and its sample
@@ -123,13 +127,13 @@ fields, and the four totals/balance variables.
         <td style="padding:8px 6px;">{{rate}}</td>
         <td style="padding:8px 6px;">{{amount}}</td>
         <td style="padding:8px 6px;">{{currencyCode}}</td>
-        <td style="padding:8px 6px;">{{billed}}</td>
+        <td style="padding:8px 6px;">{{#if billed}}Yes{{else}}No{{/if}}</td>
       </tr>
       {{/each}}
     </tbody>
   </table>
-  {{/if}}
   <p style="margin:12px 0;">Materials total: <strong>{{ticket.materialsTotal}}</strong></p>
+  {{/if}}
 
   {{#if ticket.timeEntries}}
   <h2 style="font-size:18px;">Time Entries</h2>
@@ -237,13 +241,13 @@ the remaining columns stay aligned.
         <td style="padding:8px 6px;">{{name}}</td>
         <td style="padding:8px 6px;">{{quantity}}</td>
         <td style="padding:8px 6px;">{{amount}}</td>
-        <td style="padding:8px 6px;">{{billed}}</td>
+        <td style="padding:8px 6px;">{{#if billed}}Yes{{else}}No{{/if}}</td>
       </tr>
       {{/each}}
     </tbody>
   </table>
-  {{/if}}
   <p>Materials total: <strong>{{ticket.materialsTotal}}</strong></p>
+  {{/if}}
 
   {{#if ticket.timeEntries}}
   <h2 style="font-size:18px;">Billable Time</h2>
@@ -275,8 +279,14 @@ the remaining columns stay aligned.
 
 ## Plain-text content
 
+The plain-text alternative is derived from the rendered HTML, with entities such
+as `&amp;` decoded back to their characters, so write the HTML body as the single
+source of truth.
+
 Use the same arrays without HTML. Individual field tokens are loop-local; for
 example, `{{name}}` or `{{this.name}}` belongs inside the device loop.
+In the editor's Variables panel, selecting an array inserts an editable loop at
+the cursor; its example shows the preview's sample output.
 
 ```handlebars
 {{#if ticket.assets}}

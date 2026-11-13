@@ -732,18 +732,18 @@ export const templateVariableSeed: TemplateVariableSeedCategory[] = [
           {
             "path": "clientName",
             "type": "string",
-            "description": "The recipient's own client company, named in the invitation intro.",
+            "description": "The recipient's client company, whose customer portal they are being invited to.",
             "example": "Acme Corporation",
             "availability": "used",
-            "notes": "Used only in the intro sentence ('invited to access the customer portal for <clientName>'). Falls back to tenantName when the contact has no client."
+            "notes": "Used in the invitation introduction."
           },
           {
             "path": "tenantName",
             "type": "string",
-            "description": "The MSP sending the invitation, shown in the subject and footer copyright.",
+            "description": "The MSP sending the invitation.",
             "example": "Northwind Managed Services",
             "availability": "used",
-            "notes": "Assembled from the tenant's default client name. Used in subject, footer copyright, and the {{#if tenantName}} condition in the Polish subject."
+            "notes": "Used in the subject and footer copyright. Defaults to clientName when omitted."
           },
           {
             "path": "portalLink",
@@ -764,10 +764,10 @@ export const templateVariableSeed: TemplateVariableSeedCategory[] = [
           {
             "path": "supportEmail",
             "type": "string",
-            "description": "The MSP's support email, shown in the Need Assistance box and footer (also the email Reply-To).",
+            "description": "The MSP's support email, shown in the Need Assistance box and footer.",
             "example": "support@northwind.example",
             "availability": "used",
-            "notes": "Assembled from tenant_settings.settings.supportEmail, falling back to the default client's location email. Defaults to 'Not provided' when neither is set. Used in contact-info Email, footerUnexpected, and text. Also passed as replyTo."
+            "notes": "Defaults to 'Not provided' when omitted. The caller's support email is also passed as replyTo."
           },
           {
             "path": "supportPhone",
@@ -775,23 +775,23 @@ export const templateVariableSeed: TemplateVariableSeedCategory[] = [
             "description": "The MSP's support phone number, shown in the Need Assistance box.",
             "example": "+1 (555) 010-1234",
             "availability": "used",
-            "notes": "Assembled from tenant_settings.settings.supportPhone, falling back to the default client's location phone. Defaults to 'Not provided' when neither is set. Used in contact-info Phone and text."
+            "notes": "Defaults to 'Not provided' when omitted."
           },
           {
             "path": "clientLocationEmail",
             "type": "string",
-            "description": "Legacy alias of supportEmail, kept for template rows that predate the rename.",
+            "description": "Legacy alias for the MSP's support email.",
             "example": "support@northwind.example",
             "availability": "available-unused",
-            "notes": "Still supplied with the same value as supportEmail so un-migrated template rows keep rendering, but no current template references it."
+            "notes": "Kept for older saved templates; has the same value as supportEmail."
           },
           {
             "path": "clientLocationPhone",
             "type": "string",
-            "description": "Legacy alias of supportPhone, kept for template rows that predate the rename.",
+            "description": "Legacy alias for the MSP's support phone number.",
             "example": "+1 (555) 010-1234",
             "availability": "available-unused",
-            "notes": "Still supplied with the same value as supportPhone so un-migrated template rows keep rendering, but no current template references it."
+            "notes": "Kept for older saved templates; has the same value as supportPhone."
           },
           {
             "path": "currentYear",
@@ -1019,14 +1019,6 @@ export const templateVariableSeed: TemplateVariableSeedCategory[] = [
             "notes": "Built from NEXTAUTH_URL or NEXT_PUBLIC_APP_URL at send time; wrapped in {{#if portalLink}}."
           },
           {
-            "path": "quoteReviewLink",
-            "type": "url",
-            "description": "Per-recipient link to review and approve the quote without signing in; empty when the tenant has turned email-link review off.",
-            "example": "https://app.example.com/quote/Qm9n0xv3kP2s5Yh8TqLw1AaBcDeFgHiJkLmNoPqRsTu",
-            "availability": "used",
-            "notes": "Unique to each recipient. When present it is the primary call-to-action and portalLink becomes a secondary link shown only to recipients with client-portal access; wrapped in {{#if quoteReviewLink}}."
-          },
-          {
             "path": "customMessage",
             "type": "string",
             "description": "Optional free-text note from the MSP shown in a highlighted box; the box is hidden when empty.",
@@ -1078,14 +1070,6 @@ export const templateVariableSeed: TemplateVariableSeedCategory[] = [
             "example": "https://app.example.com/client-portal/billing?tab=quotes",
             "availability": "used",
             "notes": "Built from NEXTAUTH_URL or NEXT_PUBLIC_APP_URL at send time; wrapped in {{#if portalLink}}."
-          },
-          {
-            "path": "quoteReviewLink",
-            "type": "url",
-            "description": "Per-recipient link to review and approve the quote without signing in; empty when the tenant has turned email-link review off.",
-            "example": "https://app.example.com/quote/Qm9n0xv3kP2s5Yh8TqLw1AaBcDeFgHiJkLmNoPqRsTu",
-            "availability": "used",
-            "notes": "Unique to each recipient. When present it is the primary call-to-action and portalLink becomes a secondary link shown only to recipients with client-portal access; wrapped in {{#if quoteReviewLink}}."
           },
           {
             "path": "customMessage",
@@ -2949,7 +2933,7 @@ export const templateVariableSeed: TemplateVariableSeedCategory[] = [
             "path": "ticket.assets",
             "type": "array",
             "description": "Linked assets. Iterate to choose columns; values are plain data, not HTML.",
-            "example": "{{#each ticket.assets}}{{name}}{{/each}}",
+            "example": "Office Printer",
             "availability": "available-unused"
           },
           {
@@ -3019,7 +3003,7 @@ export const templateVariableSeed: TemplateVariableSeedCategory[] = [
             "path": "ticket.materials",
             "type": "array",
             "description": "Material rows with quantity, currency-formatted rate and amount, and billed state.",
-            "example": "{{#each ticket.materials}}{{name}}: {{quantity}} × {{rate}} = {{amount}}{{/each}}",
+            "example": "Toner cartridge: 2 × $45.00 = $90.00",
             "availability": "available-unused"
           },
           {
@@ -3047,14 +3031,14 @@ export const templateVariableSeed: TemplateVariableSeedCategory[] = [
             "path": "ticket.materials[].rate",
             "type": "string",
             "description": "Material rate.",
-            "example": "USD 45.00",
+            "example": "$45.00",
             "availability": "available-unused"
           },
           {
             "path": "ticket.materials[].amount",
             "type": "string",
             "description": "Material amount.",
-            "example": "USD 90.00",
+            "example": "$90.00",
             "availability": "available-unused"
           },
           {
@@ -3075,14 +3059,14 @@ export const templateVariableSeed: TemplateVariableSeedCategory[] = [
             "path": "ticket.materialsTotal",
             "type": "string",
             "description": "Material totals, kept separate by currency when necessary.",
-            "example": "USD 90.00",
+            "example": "$90.00",
             "availability": "available-unused"
           },
           {
             "path": "ticket.timeEntries",
             "type": "array",
             "description": "Individual time entries, oldest first. Date, technician, worked and billable can be laid out as an editable table.",
-            "example": "{{#each ticket.timeEntries}}{{date}} | {{technician}} | {{worked}} | {{billable}}{{/each}}",
+            "example": "06/10/2025 | Jane Smith | 1 hr 30 min | 1 hr",
             "availability": "available-unused"
           },
           {
@@ -4908,7 +4892,7 @@ export const sharedBlockSeed: SharedVariableBlockSeed[] = [
         "description": "Name shown as the sending organization in the footer / header.",
         "example": "Wolf River IT",
         "availability": "used",
-        "notes": "VARIANTS for the same slot: tenantClientName (auth email-verification, from tenants.client_name), clientName (auth password-reset footer, from the passed org), tenantName (auth portal-invitation subject + footer, from the tenant's default client), tenant_name (surveys, tenant.client_name||tenant.name, default 'Your Team'), company.name (invoices/billing MSP sender). These are NOT interchangeable across categories - see client block for the client-vs-MSP-company collision."
+        "notes": "VARIANTS for the same slot: tenantClientName (auth email-verification, from tenants.client_name), clientName (auth password-reset footer, from the passed org), tenant_name (surveys, tenant.client_name||tenant.name, default 'Your Team'), company.name (invoices/billing MSP sender). These are NOT interchangeable across categories - see client block for the client-vs-MSP-company collision."
       },
       {
         "path": "platformName",
@@ -4934,7 +4918,7 @@ export const sharedBlockSeed: SharedVariableBlockSeed[] = [
         "description": "Support email address the recipient can reach out to (often also set as Reply-To).",
         "example": "support@acme-it.com",
         "availability": "used",
-        "notes": "VARIANT: supportEmail (auth password-reset and auth portal-invitation, defaults 'Not provided', also replyTo). Assembled-but-unused in new-appointment-request (staff template)."
+        "notes": "VARIANTS: supportEmail (auth password-reset and portal-invitation, also replyTo), with clientLocationEmail retained as a portal-invitation alias. Assembled-but-unused in new-appointment-request (staff template)."
       },
       {
         "path": "contactPhone",
@@ -4942,7 +4926,7 @@ export const sharedBlockSeed: SharedVariableBlockSeed[] = [
         "description": "Support phone number, shown only when provided.",
         "example": "+1 (555) 010-1234",
         "availability": "used",
-        "notes": "Optional; every appointment template guards it with {{#if contactPhone}}. VARIANT: supportPhone (auth portal-invitation, defaults 'Not provided')."
+        "notes": "Optional; every appointment template guards it with {{#if contactPhone}}. VARIANT: supportPhone (auth portal-invitation, with clientLocationPhone retained as an alias)."
       }
     ]
   },

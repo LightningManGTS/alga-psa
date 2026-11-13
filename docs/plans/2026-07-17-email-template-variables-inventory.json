@@ -653,10 +653,10 @@
     "Independently re-extracted every {{...}} path (subject + html + text, all locales, including {{#if}} inner paths and {{tenantLinksHtml}}/{{tenantLinksText}} triple-context injections) from all five template source files; every path matches the inventory with no additions.",
     "email-verification: template paths = registrationClientName, verificationUrl, expirationTime, tenantClientName, currentYear. sendVerificationEmail.ts templateData (lines 44-50) = {email, verificationUrl, registrationClientName (clients.client_name), tenantClientName (tenants.client_name), currentYear}. Confirmed email is available-unused (in data, not in template) and expirationTime is referenced in template but absent from templateData. verificationUrl construction (baseUrl=NEXT_PUBLIC_APP_URL, token + registrationId) matches the example.",
     "password-reset: template paths = userName, email, expirationTime, resetLink, supportEmail, currentYear, clientName. sendPasswordResetEmail.ts templateData (lines 53-61) contains exactly those 7 (minus currentYear computed); all used. supportEmail also passed as replyTo (line 74). Clean.",
-    "portal-invitation: template paths = clientName, contactName, expirationTime, portalLink, clientLocationEmail, clientLocationPhone, currentYear (plus {{#if clientName}} in the Polish subject). sendPortalInvitationEmail.ts templateData (lines 68-76) matches; clientLocationEmail/clientLocationPhone default to 'Not provided'; clientLocationEmail also replyTo (line 87). Clean.",
+    "portal-invitation: template paths = clientName, contactName, currentYear, expirationTime, portalLink, supportEmail, supportPhone, tenantName. sendPortalInvitationEmail.ts also supplies clientLocationEmail and clientLocationPhone as aliases for older saved templates.",
     "no-account-found: template paths = platformName, currentYear only. generateNoAccountEmailContent() variables (lines 284-287) = {platformName, currentYear}; sent via custom regex replaceVariables(), not DatabaseTemplateProcessor. Clean.",
     "tenant-recovery: template paths = platformName, isMultiple, tenantCount, tenantLinksHtml, tenantLinksText, currentYear. generateEmailContent() variables (lines 159-166) match; TenantLoginInfo.loginUrl/tenantName are baked into tenantLinksHtml/tenantLinksText and not exposed as their own variables, as the inventory states. Clean.",
-    "Verified the preview-sample-data uncertainties against packages/notifications/src/lib/templateSampleData.ts: email-verification sets expirationTime='48 hours' (line 84); portal-invitation sample uses stale keys invitedEmail/inviterName/invitationLink/expirationTime (only clientName+expirationTime overlap the real template); no sample entries exist for no-account-found or tenant-recovery. All uncertainty annotations are accurate."
+    "Portal invitation previews use registry-backed sample data, including the legacy support-contact aliases for older saved templates."
    ],
    "templates": [
     {
@@ -816,10 +816,8 @@
     {
      "templateName": "portal-invitation",
      "sourceFile": "server/migrations/utils/templates/email/auth/portalInvitation.cjs",
-     "subject": "Portal Invitation - {{clientName}}",
-     "conditionals": [
-      "clientName"
-     ],
+     "subject": "Portal Invitation - {{tenantName}}",
+     "conditionals": [],
      "variables": [
       {
        "path": "contactName",
@@ -832,10 +830,18 @@
       {
        "path": "clientName",
        "type": "string",
-       "description": "The client/company whose customer portal the recipient is being invited to.",
+       "description": "The recipient's client company, whose customer portal they are being invited to.",
        "example": "Acme Corporation",
        "availability": "used",
-       "notes": "Used in subject, intro, and footer copyright. Also an {{#if clientName}} condition in the Polish subject."
+       "notes": "Used in the invitation introduction."
+      },
+      {
+       "path": "tenantName",
+       "type": "string",
+       "description": "The MSP sending the invitation.",
+       "example": "Northwind Managed Services",
+       "availability": "used",
+       "notes": "Used in the subject and footer copyright. Defaults to clientName when omitted."
       },
       {
        "path": "portalLink",
@@ -854,20 +860,36 @@
        "notes": "Used in the time-sensitive warning box and its text equivalent."
       },
       {
+       "path": "supportEmail",
+       "type": "string",
+       "description": "The MSP's support email, shown in the Need Assistance box and footer.",
+       "example": "support@northwind.example",
+       "availability": "used",
+       "notes": "Defaults to 'Not provided' when omitted. The caller's support email is also passed as replyTo."
+      },
+      {
+       "path": "supportPhone",
+       "type": "string",
+       "description": "The MSP's support phone number, shown in the Need Assistance box.",
+       "example": "+1 (555) 010-1234",
+       "availability": "used",
+       "notes": "Defaults to 'Not provided' when omitted."
+      },
+      {
        "path": "clientLocationEmail",
        "type": "string",
-       "description": "The client location's contact email, shown in the Need Assistance box and footer (also the email Reply-To).",
-       "example": "support@acme.com",
-       "availability": "used",
-       "notes": "Defaults to 'Not provided' when the caller omits it. Used in contact-info Email, footerUnexpected, and text. Also passed as replyTo."
+       "description": "Legacy alias for the MSP's support email.",
+       "example": "support@northwind.example",
+       "availability": "available-unused",
+       "notes": "Kept for older saved templates; has the same value as supportEmail."
       },
       {
        "path": "clientLocationPhone",
        "type": "string",
-       "description": "The client location's contact phone number, shown in the Need Assistance box.",
+       "description": "Legacy alias for the MSP's support phone number.",
        "example": "+1 (555) 010-1234",
-       "availability": "used",
-       "notes": "Defaults to 'Not provided' when the caller omits it. Used in contact-info Phone and text."
+       "availability": "available-unused",
+       "notes": "Kept for older saved templates; has the same value as supportPhone."
       },
       {
        "path": "currentYear",
@@ -878,9 +900,7 @@
        "notes": "Set to new Date().getFullYear() at send time."
       }
      ],
-     "uncertainties": [
-      "The preview sample data in templateSampleData.ts for 'portal-invitation' is stale/mismatched: it defines invitedEmail, inviterName, clientName, invitationLink, expirationTime, whereas the shipped template and the send-time templateData actually use contactName, portalLink, clientLocationEmail, clientLocationPhone (only clientName and expirationTime overlap). Preview keys inviterName/invitedEmail/invitationLink do not correspond to any variable in the template."
-     ]
+     "uncertainties": []
     },
     {
      "templateName": "tenant-recovery",
@@ -3293,7 +3313,7 @@
        "path": "ticket.assets",
        "type": "array",
        "description": "Linked assets. Iterate to choose columns; values are plain data, not HTML.",
-       "example": "{{#each ticket.assets}}{{name}}{{/each}}",
+       "example": "Office Printer",
        "availability": "available-unused"
       },
       {
@@ -3363,7 +3383,7 @@
        "path": "ticket.materials",
        "type": "array",
        "description": "Material rows with quantity, currency-formatted rate and amount, and billed state.",
-       "example": "{{#each ticket.materials}}{{name}}: {{quantity}} × {{rate}} = {{amount}}{{/each}}",
+       "example": "Toner cartridge: 2 × $45.00 = $90.00",
        "availability": "available-unused"
       },
       {
@@ -3391,14 +3411,14 @@
        "path": "ticket.materials[].rate",
        "type": "string",
        "description": "Material rate.",
-       "example": "USD 45.00",
+       "example": "$45.00",
        "availability": "available-unused"
       },
       {
        "path": "ticket.materials[].amount",
        "type": "string",
        "description": "Material amount.",
-       "example": "USD 90.00",
+       "example": "$90.00",
        "availability": "available-unused"
       },
       {
@@ -3419,14 +3439,14 @@
        "path": "ticket.materialsTotal",
        "type": "string",
        "description": "Material totals, kept separate by currency when necessary.",
-       "example": "USD 90.00",
+       "example": "$90.00",
        "availability": "available-unused"
       },
       {
        "path": "ticket.timeEntries",
        "type": "array",
        "description": "Individual time entries, oldest first. Date, technician, worked and billable can be laid out as an editable table.",
-       "example": "{{#each ticket.timeEntries}}{{date}} | {{technician}} | {{worked}} | {{billable}}{{/each}}",
+       "example": "06/10/2025 | Jane Smith | 1 hr 30 min | 1 hr",
        "availability": "available-unused"
       },
       {
@@ -5371,7 +5391,7 @@
       "description": "Support email address the recipient can reach out to (often also set as Reply-To).",
       "example": "support@acme-it.com",
       "availability": "used",
-      "notes": "VARIANTS: supportEmail (auth password-reset, also replyTo), clientLocationEmail (auth portal-invitation, defaults 'Not provided', also replyTo). Assembled-but-unused in new-appointment-request (staff template)."
+      "notes": "VARIANTS: supportEmail (auth password-reset and portal-invitation, also replyTo), with clientLocationEmail retained as a portal-invitation alias. Assembled-but-unused in new-appointment-request (staff template)."
      },
      {
       "path": "contactPhone",
@@ -5379,7 +5399,7 @@
       "description": "Support phone number, shown only when provided.",
       "example": "+1 (555) 010-1234",
       "availability": "used",
-      "notes": "Optional; every appointment template guards it with {{#if contactPhone}}. VARIANT: clientLocationPhone (auth portal-invitation, defaults 'Not provided')."
+      "notes": "Optional; every appointment template guards it with {{#if contactPhone}}. VARIANT: supportPhone (auth portal-invitation, with clientLocationPhone retained as an alias)."
      }
     ]
    },

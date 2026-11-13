@@ -66,6 +66,19 @@ describe("email template variable registry", () => {
     ).toBe("raw-html");
   });
 
+  it("previews current and legacy portal invitation support contacts", () => {
+    const data = getNestedTemplateExampleData("portal-invitation");
+    const variables = templateVariableRegistry["portal-invitation"].variables;
+
+    expect(data.tenantName).not.toBe(data.clientName);
+    expect(data.clientLocationEmail).toBe(data.supportEmail);
+    expect(data.clientLocationPhone).toBe(data.supportPhone);
+    for (const path of ["clientLocationEmail", "clientLocationPhone"]) {
+      expect(variables.find((variable) => variable.path === path)?.availability)
+        .toBe("available-unused");
+    }
+  });
+
   it("strictly renders every locale using registry examples", () => {
     const templates = inventory.categories.flatMap(
       (category) => category.templates,

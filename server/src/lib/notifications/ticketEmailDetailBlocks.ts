@@ -48,6 +48,21 @@ export interface TicketEmailDetailBlocks {
   remainingBlockHours: string;
 }
 
+/** Fallback blocks when detail building fails; templates render empty sections. */
+export function emptyTicketEmailDetailBlocks(): TicketEmailDetailBlocks {
+  return {
+    assets: [],
+    materials: [],
+    materialsTotal: '',
+    timeEntries: [],
+    totalTimeWorked: formatMinutesAsHoursAndMinutes(0),
+    totalTimeBillable: formatMinutesAsHoursAndMinutes(0),
+    remainingBlockHours: formatMinutesAsHoursAndMinutes(0),
+  };
+}
+
+export type HourBlockMinutesResolver = (clientId: string) => Promise<number>;
+
 interface AssetRow {
   asset_tag: string | null;
   name: string | null;
@@ -149,13 +164,19 @@ async function fetchTimeEntries(knex: Knex, tenant: string, ticketId: string): P
     .orderBy([{ column: 'te.start_time', order: 'asc' }, { column: 'te.entry_id', order: 'asc' }]);
 }
 
-/** Data only: templates own their markup, column selection and labels. */
+/**
+ * Data only: templates own their markup, column selection and labels.
+ * `resolveHourBlockMinutes` lets callers share one hour-block lookup per client
+ * across a ticket bundle; it defaults to a direct per-ticket lookup.
+ */
 export async function buildTicketEmailDetailBlocks(
   knex: Knex,
   tenant: string,
   ticketId: string,
   clientId: string | null | undefined,
   timeZone = 'UTC',
+  resolveHourBlockMinutes: HourBlockMinutesResolver = (id) =>
+    getAvailableHourBlockMinutes(knex, tenant, id),
 ): Promise<TicketEmailDetailBlocks> {
   if (!tenant || !ticketId) {
     throw new Error('Ticket email details require a tenant and ticket ID');
@@ -167,7 +188,7 @@ export async function buildTicketEmailDetailBlocks(
     fetchAssets(knex, tenant, ticketId),
     fetchMaterials(knex, tenant, ticketId),
     fetchTimeEntries(knex, tenant, ticketId),
-    clientId ? getAvailableHourBlockMinutes(knex, tenant, clientId) : Promise.resolve(0),
+    clientId ? resolveHourBlockMinutes(clientId) : Promise.resolve(0),
   ]);
   const totalsByCurrency = new Map<string, number>();
   const materials = materialRows.map((row) => {
