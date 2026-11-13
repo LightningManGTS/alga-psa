@@ -13,10 +13,6 @@ const state = vi.hoisted(() => ({
   where: vi.fn(),
   whereIn: vi.fn(),
   hours: vi.fn(),
-  logError: vi.fn(),
-}));
-vi.mock('@alga-psa/core/logger', () => ({
-  default: { error: state.logError, warn: vi.fn(), info: vi.fn(), debug: vi.fn() },
 }));
 vi.mock('@alga-psa/shared/billingClients/hourBlockService', () => ({
   getAvailableHourBlockMinutes: state.hours,
@@ -50,7 +46,8 @@ vi.mock('@alga-psa/db', () => ({
 }));
 import {
   buildTicketEmailDetailBlocks,
-  buildTicketEmailDetailBlocksForTickets,
+  buildTicketEmailDetailBlocksFromRows,
+  fetchTicketEmailDetailRows,
   sortTimeEntriesChronologically,
 } from '../../../lib/notifications/ticketEmailDetailBlocks';
 
@@ -103,26 +100,10 @@ describe('closed-ticket email detail data', () => {
     expect(data.materialsTotal).toBe('$90.00 + €10.00');
   });
 
-  it('blanks only the materials section on an unsupported currency and logs the ticket', async () => {
+  it('rejects invalid material currency and propagates lookup failures', async () => {
     state.materials = [{ item_name: 'Toner', quantity: 1, rate: 1000, currency_code: 'BAD' }];
-    state.time = [{ entry_id: '1', start_time: '2025-06-10T09:00:00Z', end_time: '2025-06-10T10:00:00Z', billable_duration: 60, technician_name: 'Jane Smith' }];
-    state.assets = [{ asset_tag: 'A-1', name: 'Printer' }];
-    const data = await build();
-    expect(data.materials).toEqual([]);
-    expect(data.materialsTotal).toBe('');
-    expect(data.timeEntries).toHaveLength(1);
-    expect(data.totalTimeWorked).toBe('1 hr');
-    expect(data.assets).toHaveLength(1);
-    expect(state.logError).toHaveBeenCalledTimes(1);
-    expect(state.logError.mock.calls[0][1]).toMatchObject({
-      tenant: 'tenant-1',
-      ticketId: 'ticket-1',
-      section: 'materials',
-      error: expect.stringContaining('unsupported material currency "BAD"'),
-    });
-  });
-
-  it('propagates lookup failures', async () => {
+    await expect(build()).rejects.toThrow('unsupported material currency');
+    state.materials = [];
     state.hours.mockRejectedValueOnce(new Error('Hour-block database unavailable'));
     await expect(build()).rejects.toThrow('Hour-block database unavailable');
   });
@@ -191,14 +172,13 @@ describe('closed-ticket email detail data', () => {
     state.time = [
       { ticket_id: 'ticket-2', entry_id: '2', start_time: '2025-06-10T09:00:00Z', end_time: '2025-06-10T09:30:00Z', billable_duration: 30, technician_name: 'Kim' },
     ];
-    const blocks = await buildTicketEmailDetailBlocksForTickets(knex, 'tenant-1', [
-      { ticketId: 'ticket-1', clientId: 'client-1' },
-      { ticketId: 'ticket-2', clientId: null },
-    ], 'UTC');
+    const rows = await fetchTicketEmailDetailRows(knex, 'tenant-1', ['ticket-1', 'ticket-2']);
     expect(state.tenant).toHaveBeenCalledTimes(3);
     expect(state.whereIn).toHaveBeenCalledWith('tm.ticket_id', ['ticket-1', 'ticket-2']);
-    expect(blocks.get('ticket-1')).toMatchObject({ materialsTotal: '$45.00', timeEntries: [], remainingBlockHours: '12 hrs 45 min' });
-    expect(blocks.get('ticket-2')).toMatchObject({
+    const fromRows = (ticketId: string, clientId: string | null) =>
+      buildTicketEmailDetailBlocksFromRows(ticketId, clientId, rows, 'UTC', (id) => state.hours(knex, 'tenant-1', id));
+    expect(await fromRows('ticket-1', 'client-1')).toMatchObject({ materialsTotal: '$45.00', timeEntries: [], remainingBlockHours: '12 hrs 45 min' });
+    expect(await fromRows('ticket-2', null)).toMatchObject({
       materialsTotal: '$20.00',
       timeEntries: [{ date: '06/10/2025', technician: 'Kim', worked: '0 hrs 30 min', billable: '0 hrs 30 min' }],
       remainingBlockHours: '0 hrs',

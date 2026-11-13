@@ -32,10 +32,10 @@ Each empty state is independent of the others:
 - No client, or no available prepaid hour block: `ticket.remainingBlockHours`
   is `0 hrs`.
 
-If a material or time-entry row has data the email cannot show (for example an
-unsupported material currency), only that section is left in its empty state
-for that ticket and the problem is logged with the tenant and ticket; the other
-sections are still filled in.
+If a ticket's detail data cannot be built (for example a database error or an
+unsupported material currency), the email is still sent with every detail
+variable for that ticket in the empty state above, and a warning is logged
+with the tenant and ticket.
 
 The three duration values are always non-empty strings, so
 `{{#if ticket.totalTimeWorked}}` and similar checks are always true. Guard the

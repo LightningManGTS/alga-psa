@@ -3,13 +3,12 @@ import type { Knex } from 'knex';
 
 // Drives handleTicketClosed end-to-end over a fake tenantDb facade so the
 // closed-ticket detail contract (delivery into send contexts, per-client
-// hour-block memoization, section-scoped data failures) is proven behaviorally
+// hour-block memoization, non-fatal builder failures) is proven behaviorally
 // rather than by grepping the subscriber source.
 
 const state = vi.hoisted(() => ({
   materials: [] as Record<string, unknown>[],
   materialsFail: false,
-  logError: vi.fn(),
   hours: vi.fn(),
   sends: [] as any[],
 }));
@@ -18,11 +17,6 @@ vi.mock('@alga-psa/shared/billingClients/hourBlockService', async (importOrigina
   ...(await importOriginal<typeof import('@alga-psa/shared/billingClients/hourBlockService')>()),
   getAvailableHourBlockMinutes: state.hours,
 }));
-
-vi.mock('@alga-psa/core/logger', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@alga-psa/core/logger')>();
-  return { ...actual, default: { ...actual.default, error: state.logError } };
-});
 
 const fakeKnex = { raw: (sql: string) => sql } as unknown as Knex;
 
@@ -165,7 +159,6 @@ describe('ticket closed email detail delivery', () => {
       { ticket_id: 'ticket-child-1', item_name: 'Cable', description: 'USB-C', quantity: 1, rate: 1500, currency_code: 'USD', is_billed: false },
     ];
     state.materialsFail = false;
-    state.logError.mockClear();
     state.hours.mockClear();
     state.hours.mockResolvedValue(765);
     state.sends.length = 0;
@@ -204,8 +197,8 @@ describe('ticket closed email detail delivery', () => {
     expect(state.hours).toHaveBeenCalledWith(expect.anything(), TENANT, 'client-1');
   });
 
-  it('blanks only the materials section of the affected ticket on an unsupported currency', async () => {
-    state.materials[1] = { ...state.materials[1], currency_code: 'BAD' };
+  it('still sends the close emails with empty details when the detail build fails', async () => {
+    state.materialsFail = true;
 
     await handleTicketClosed(closedEvent());
 
@@ -214,24 +207,16 @@ describe('ticket closed email detail delivery', () => {
       'requester@example.com',
       'child1@example.com',
     ]);
-    expect(contactSends[0].context.ticket.materialsTotal).toBe('$90.00');
-    expect(contactSends[1].context.ticket).toMatchObject({
-      materials: [],
-      materialsTotal: '',
-      totalTimeWorked: '0 hrs 45 min',
-      remainingBlockHours: '12 hrs 45 min',
-    });
-    expect(contactSends[1].context.ticket.timeEntries).toHaveLength(1);
-    expect(state.logError).toHaveBeenCalledWith(
-      expect.stringContaining('materials'),
-      expect.objectContaining({ tenant: TENANT, ticketId: 'ticket-child-1', section: 'materials' }),
-    );
-  });
-
-  it('surfaces detail query failures instead of sending without details', async () => {
-    state.materialsFail = true;
-
-    await expect(handleTicketClosed(closedEvent())).rejects.toThrow('Material lookup unavailable');
-    expect(state.sends.filter((send) => send.template === 'ticket-closed')).toHaveLength(0);
+    for (const send of contactSends) {
+      expect(send.context.ticket).toMatchObject({
+        assets: [],
+        materials: [],
+        materialsTotal: '',
+        timeEntries: [],
+        totalTimeWorked: '0 hrs',
+        totalTimeBillable: '0 hrs',
+        remainingBlockHours: '0 hrs',
+      });
+    }
   });
 });

@@ -8,7 +8,6 @@ import {
 } from '@alga-psa/core';
 import { getAvailableHourBlockMinutes } from '@alga-psa/shared/billingClients/hourBlockService';
 import { LOCALE_CONFIG } from '@alga-psa/core/i18n/config';
-import logger from '@alga-psa/core/logger';
 
 export interface TicketEmailAsset {
   assetTag: string;
@@ -47,6 +46,19 @@ export interface TicketEmailDetailBlocks {
   totalTimeWorked: string;
   totalTimeBillable: string;
   remainingBlockHours: string;
+}
+
+/** Fallback blocks when detail building fails; templates render empty sections. */
+export function emptyTicketEmailDetailBlocks(): TicketEmailDetailBlocks {
+  return {
+    assets: [],
+    materials: [],
+    materialsTotal: '',
+    timeEntries: [],
+    totalTimeWorked: formatMinutesAsHoursAndMinutes(0),
+    totalTimeBillable: formatMinutesAsHoursAndMinutes(0),
+    remainingBlockHours: formatMinutesAsHoursAndMinutes(0),
+  };
 }
 
 export type HourBlockMinutesResolver = (clientId: string) => Promise<number>;
@@ -118,15 +130,10 @@ export function sortTimeEntriesChronologically(rows: TimeEntryRow[]): TimeEntryR
   });
 }
 
-interface TicketDetailRows {
+export interface TicketDetailRows {
   assets: AssetRow[];
   materials: MaterialRow[];
   timeEntries: TimeEntryRow[];
-}
-
-export interface TicketEmailDetailTarget {
-  ticketId: string;
-  clientId: string | null | undefined;
 }
 
 function groupByTicket<T extends { ticket_id: string }>(rows: T[]): Map<string, T[]> {
@@ -184,11 +191,14 @@ async function fetchTimeEntries(knex: Knex, tenant: string, ticketIds: string[])
 }
 
 /** One query per detail section for the whole set of tickets, grouped by ticket ID. */
-async function fetchTicketDetailRows(
+export async function fetchTicketEmailDetailRows(
   knex: Knex,
   tenant: string,
   ticketIds: string[],
 ): Promise<Map<string, TicketDetailRows>> {
+  if (!tenant || ticketIds.length === 0 || ticketIds.some((id) => !id)) {
+    throw new Error('Ticket email details require a tenant and ticket ID');
+  }
   const [assets, materials, timeEntries] = await Promise.all([
     fetchAssets(knex, tenant, ticketIds),
     fetchMaterials(knex, tenant, ticketIds),
@@ -199,31 +209,6 @@ async function fetchTicketDetailRows(
     materials: materials.get(ticketId) ?? [],
     timeEntries: timeEntries.get(ticketId) ?? [],
   }]));
-}
-
-/**
- * Bad row data in one section (e.g. an unsupported material currency) only
- * blanks that section; it is logged with tenant and ticket so it can be fixed.
- * Query failures are not caught here and propagate to the caller.
- */
-function buildSection<T>(
-  section: string,
-  tenant: string,
-  ticketId: string,
-  build: () => T,
-  fallback: () => T,
-): T {
-  try {
-    return build();
-  } catch (error) {
-    logger.error(`[TicketEmailDetails] Omitting the ${section} section from the ticket email; fix the ticket's ${section} data to include it`, {
-      tenant,
-      ticketId,
-      section,
-      error: error instanceof Error ? error.message : String(error),
-    });
-    return fallback();
-  }
 }
 
 function buildMaterialsSection(rows: MaterialRow[]) {
@@ -274,67 +259,41 @@ function buildTimeSection(rows: TimeEntryRow[], dateFormatter: Intl.DateTimeForm
 
 /**
  * Data only: templates own their markup, column selection and labels.
- * Detail rows for every ticket are fetched in one batch per section.
+ * Builds one ticket's blocks from rows fetched by `fetchTicketEmailDetailRows`.
  * `resolveHourBlockMinutes` lets callers share one hour-block lookup per client
- * across a ticket bundle; it defaults to a direct per-ticket lookup.
+ * across a ticket bundle.
  */
-export async function buildTicketEmailDetailBlocksForTickets(
-  knex: Knex,
-  tenant: string,
-  tickets: TicketEmailDetailTarget[],
-  timeZone = 'UTC',
-  resolveHourBlockMinutes: HourBlockMinutesResolver = (id) =>
-    getAvailableHourBlockMinutes(knex, tenant, id),
-): Promise<Map<string, TicketEmailDetailBlocks>> {
-  if (!tenant) {
-    throw new Error('Ticket email details require a tenant');
+export async function buildTicketEmailDetailBlocksFromRows(
+  ticketId: string,
+  clientId: string | null | undefined,
+  rowsByTicket: Map<string, TicketDetailRows>,
+  timeZone: string,
+  resolveHourBlockMinutes: HourBlockMinutesResolver,
+): Promise<TicketEmailDetailBlocks> {
+  const rows = rowsByTicket.get(ticketId);
+  if (!rows) {
+    throw new Error(`Ticket email details: no detail rows were fetched for ticket ${ticketId}`);
   }
-  if (tickets.some((ticket) => !ticket.ticketId)) {
-    throw new Error('Ticket email details require a ticket ID for every ticket');
-  }
-  const result = new Map<string, TicketEmailDetailBlocks>();
-  if (tickets.length === 0) return result;
-
   const dateFormatter = new Intl.DateTimeFormat(LOCALE_CONFIG.defaultLocale, {
     timeZone, year: 'numeric', month: '2-digit', day: '2-digit',
   });
-  const ticketIds = [...new Set(tickets.map((ticket) => ticket.ticketId))];
-  const [rowsByTicket, remainingMinutes] = await Promise.all([
-    fetchTicketDetailRows(knex, tenant, ticketIds),
-    Promise.all(tickets.map((ticket) =>
-      ticket.clientId ? resolveHourBlockMinutes(ticket.clientId) : Promise.resolve(0))),
-  ]);
-
-  tickets.forEach(({ ticketId }, index) => {
-    const rows = rowsByTicket.get(ticketId)!;
-    const materials = buildSection('materials', tenant, ticketId,
-      () => buildMaterialsSection(rows.materials),
-      () => ({ materials: [], materialsTotal: '' }));
-    const time = buildSection('time entries', tenant, ticketId,
-      () => buildTimeSection(rows.timeEntries, dateFormatter),
-      () => ({
-        timeEntries: [],
-        totalTimeWorked: formatMinutesAsHoursAndMinutes(0),
-        totalTimeBillable: formatMinutesAsHoursAndMinutes(0),
-      }));
-    result.set(ticketId, {
-      assets: rows.assets.map((row) => ({
-        assetTag: text(row.asset_tag),
-        name: text(row.name),
-        assetType: text(row.asset_type_name) || text(row.asset_type),
-        manufacturer: text(row.manufacturer),
-        model: text(row.model),
-        serialNumber: text(row.serial_number),
-        status: text(row.status),
-        location: text(row.location),
-        relationship: text(row.relationship_type),
-      })),
-      ...materials,
-      ...time,
-      remainingBlockHours: formatMinutesAsHoursAndMinutes(remainingMinutes[index]),
-    });
-  });
-  return result;
+  const remainingMinutes = clientId ? await resolveHourBlockMinutes(clientId) : 0;
+  return {
+    assets: rows.assets.map((row) => ({
+      assetTag: text(row.asset_tag),
+      name: text(row.name),
+      assetType: text(row.asset_type_name) || text(row.asset_type),
+      manufacturer: text(row.manufacturer),
+      model: text(row.model),
+      serialNumber: text(row.serial_number),
+      status: text(row.status),
+      location: text(row.location),
+      relationship: text(row.relationship_type),
+    })),
+    ...buildMaterialsSection(rows.materials),
+    ...buildTimeSection(rows.timeEntries, dateFormatter),
+    remainingBlockHours: formatMinutesAsHoursAndMinutes(remainingMinutes),
+  };
 }
 
 export async function buildTicketEmailDetailBlocks(
@@ -343,13 +302,11 @@ export async function buildTicketEmailDetailBlocks(
   ticketId: string,
   clientId: string | null | undefined,
   timeZone = 'UTC',
-  resolveHourBlockMinutes?: HourBlockMinutesResolver,
+  resolveHourBlockMinutes: HourBlockMinutesResolver = (id) =>
+    getAvailableHourBlockMinutes(knex, tenant, id),
 ): Promise<TicketEmailDetailBlocks> {
-  if (!ticketId) {
-    throw new Error('Ticket email details require a tenant and ticket ID');
-  }
-  const blocks = await buildTicketEmailDetailBlocksForTickets(
-    knex, tenant, [{ ticketId, clientId }], timeZone, resolveHourBlockMinutes,
+  const rowsByTicket = await fetchTicketEmailDetailRows(knex, tenant, [ticketId]);
+  return buildTicketEmailDetailBlocksFromRows(
+    ticketId, clientId, rowsByTicket, timeZone, resolveHourBlockMinutes,
   );
-  return blocks.get(ticketId)!;
 }
