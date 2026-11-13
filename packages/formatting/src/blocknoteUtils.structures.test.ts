@@ -148,6 +148,8 @@ describe('rich-text export structures', () => {
     expect(plainText).toContain('Child');
     expect(plainText.split('Child')).toHaveLength(2);
     expect(html).not.toContain('"children"');
+    expect(html).not.toContain(UNSUPPORTED_RICH_TEXT_PLACEHOLDER);
+    expect(plainText).not.toContain(UNSUPPORTED_RICH_TEXT_PLACEHOLDER);
   });
 
   it('renders BlockNote and ProseMirror table cells with null metadata', () => {
@@ -284,6 +286,31 @@ describe('rich-text export structures', () => {
         expect(output).not.toContain('javascript:');
       }
     }
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it.each(['quote', 'toggleListItem'] as const)('falls back per-block when %s has no array content, leaving siblings intact', (type) => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const blocks = [
+      { type: 'paragraph', content: text('Before') },
+      { type, content: 'not an array' },
+      { type: 'paragraph', content: text('After') },
+    ];
+    for (const content of [blocks, JSON.stringify(blocks)]) {
+      const { html, text: plainText } = formatBlockNoteContent(content);
+      const markdown = convertBlockContentToMarkdown(content);
+      for (const output of [html, plainText, markdown]) {
+        expect(output).toContain('Before');
+        expect(output).toContain('After');
+        expect(output).toContain(UNSUPPORTED_RICH_TEXT_PLACEHOLDER);
+      }
+      // The malformed block is replaced, not the whole document.
+      expect(markdown.match(new RegExp(UNSUPPORTED_RICH_TEXT_PLACEHOLDER.replace(/[$.*+?^=:{}|\\[\]()/]/g, '\\$&'), 'g'))).toHaveLength(1);
+    }
+    const localized = formatBlockNoteContent(blocks, { unsupportedContentPlaceholder: '[Unavailable]' });
+    expect(localized.html).toContain('[Unavailable]');
+    expect(localized.text).toContain('[Unavailable]');
     expect(warn).toHaveBeenCalled();
     warn.mockRestore();
   });

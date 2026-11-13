@@ -600,10 +600,16 @@ function customBlocksToMarkdown(blocks: Block[] | PartialBlock[], options?: Rich
         break;
 
       case 'quote':
-        return extractStyledTextFromContent(block.content).split('\n').map(line => `> ${line}`).join('\n');
-
-      case 'toggleListItem':
-        return `- ${extractStyledTextFromContent(block.content)}`;
+      case 'toggleListItem': {
+        const text = Array.isArray(block.content)
+          ? extractStyledTextFromContent(block.content)
+          : block.content == null && block.children?.length
+            ? ''
+            : unsupportedBlock(block.type, options);
+        return block.type === 'quote'
+          ? text.split('\n').map(line => `> ${line}`).join('\n')
+          : `- ${text}`;
+      }
 
       case 'divider':
         return '---';
@@ -999,7 +1005,12 @@ export function convertBlockNoteToHTML(blocks: any, options?: RichTextRenderOpti
         case 'toggleListItem': {
           flushListBuffer();
           const tag = block.type === 'quote' ? 'blockquote' : 'div';
-          output.push(`<${tag}${styleAttribute}>${extractStyledTextToHTML(block.content)}`);
+          const inner = Array.isArray(block.content)
+            ? extractStyledTextToHTML(block.content)
+            : block.content == null && block.children?.length
+              ? ''
+              : escapeHtml(unsupportedBlock(block.type, options));
+          output.push(`<${tag}${styleAttribute}>${inner}`);
           if (block.children?.length) processBlocksRecursive(block.children as Block[], currentLevel + 1);
           output.push(`</${tag}>`);
           break;
@@ -1449,6 +1460,25 @@ function renderPMNodeMarkdown(
       const rows = (node.content ?? []).map(row =>
         `| ${(row.content ?? []).map(cell =>
           (cell.content ?? []).map(child => renderPMNodeMarkdown(child, options)).join(' ').replace(/\|/g, '\\|').replace(/\n/g, ' '),
+        ).join(' | ')} |`,
+      );
+      if (!rows.length) return '';
+      rows.splice(1, 0, `| ${(node.content?.[0]?.content ?? []).map(() => '---').join(' | ')} |`);
+      return rows.join('\n');
+    }
+
+    case 'video':
+    case 'audio':
+    case 'file':
+    case 'embed': {
+      const link = mediaLink(node.attrs ?? {}, node.type);
+      return link ? `[${link.label}](${link.url})` : UNSUPPORTED_RICH_TEXT_PLACEHOLDER;
+    }
+
+    case 'table': {
+      const rows = (node.content ?? []).map(row =>
+        `| ${(row.content ?? []).map(cell =>
+          (cell.content ?? []).map(child => renderPMNodeMarkdown(child)).join(' ').replace(/\|/g, '\\|').replace(/\n/g, ' '),
         ).join(' | ')} |`,
       );
       if (!rows.length) return '';
