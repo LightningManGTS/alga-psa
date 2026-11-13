@@ -2949,7 +2949,7 @@ export const templateVariableSeed: TemplateVariableSeedCategory[] = [
             "path": "ticket.assets",
             "type": "array",
             "description": "Linked assets. Iterate to choose columns; values are plain data, not HTML.",
-            "example": "Office Printer",
+            "example": "[{ assetTag: 'AST-0042', name: 'Office Printer', assetType: 'Printer', manufacturer: 'Brother', model: 'HL-L6200DW', serialNumber: 'SN-0042', status: 'active', location: 'Front office', relationship: 'affected' }]",
             "availability": "available-unused"
           },
           {
@@ -3019,7 +3019,7 @@ export const templateVariableSeed: TemplateVariableSeedCategory[] = [
             "path": "ticket.materials",
             "type": "array",
             "description": "Material rows with quantity, currency-formatted rate and amount, and billed state.",
-            "example": "Toner cartridge: 2 × $45.00 = $90.00",
+            "example": "[{ name: 'Toner cartridge', description: 'Replacement toner', quantity: 2, rate: '$45.00', amount: '$90.00', currencyCode: 'USD', billed: true }]",
             "availability": "available-unused"
           },
           {
@@ -3082,7 +3082,7 @@ export const templateVariableSeed: TemplateVariableSeedCategory[] = [
             "path": "ticket.timeEntries",
             "type": "array",
             "description": "Individual time entries, oldest first. Date, technician, worked and billable can be laid out as an editable table.",
-            "example": "06/10/2025 | Jane Smith | 1 hr 30 min | 1 hr",
+            "example": "[{ date: '06/10/2025', technician: 'Jane Smith', worked: '1 hr 30 min', billable: '1 hr' }]",
             "availability": "available-unused"
           },
           {

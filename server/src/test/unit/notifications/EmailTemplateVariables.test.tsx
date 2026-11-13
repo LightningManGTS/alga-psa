@@ -142,7 +142,7 @@ describe('ticket detail variable insertion', () => {
       example: '06/10/2025 | Jane Smith | 1 hr 30 min | 1 hr',
       token: '{{#each ticket.timeEntries}}{{date}} | {{technician}} | {{worked}} | {{billable}}{{/each}}',
     },
-  ])('inserts $path at the cursor and shows its preview output', async ({ path, field, replace, example, token }) => {
+  ])('inserts $path at the cursor and previews its sample row', async ({ path, field, replace, example, token }) => {
     const user = userEvent.setup();
     render(<EmailTemplates />);
 
@@ -151,13 +151,15 @@ describe('ticket detail variable insertion', () => {
     await user.click(screen.getByRole('tab', { name: 'Variables' }));
 
     const id = `template-variable-ticket-closed-${path.replace(/[^a-zA-Z0-9]+/g, '-')}`;
-    const insertButton = buttonById(`${id}-insert`);
-    expect(insertButton.textContent).toContain(example);
-    expect(insertButton.textContent).not.toContain('{{');
-
     const variable = templateVariableRegistry['ticket-closed'].variables.find((item) => item.path === path);
     expect(variable).toBeDefined();
     if (!variable) throw new Error(`Missing variable: ${path}`);
+
+    // The panel describes the array's row shape; the inserted loop renders `example`.
+    const insertButton = buttonById(`${id}-insert`);
+    expect(variable.example).toMatch(/^\[\{ .+ \}\]$/);
+    expect(insertButton.textContent).toContain(variable.example);
+    expect(insertButton.textContent).not.toContain('{{');
     expect(getTemplateVariableToken(variable)).toBe(token);
     expect(getTemplateVariableToken({ ...variable, example: 'Different sample' })).toBe(token);
     expect(replaceTemplateVariables(token, getSampleDataForPreview('ticket-closed', token))).toBe(example);
