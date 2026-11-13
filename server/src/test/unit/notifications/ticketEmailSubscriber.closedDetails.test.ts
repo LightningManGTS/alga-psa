@@ -45,15 +45,24 @@ const CHILD_ROWS = [{
   contact_phone: null,
   email_metadata: null,
 }];
+// Detail rows are keyed by ticket ID so a child send can only show its own rows.
 const TIME_ROWS = [{
+  ticket_id: 'ticket-master',
   entry_id: 'entry-1',
   start_time: '2025-06-10T09:00:00Z',
   end_time: '2025-06-10T10:30:00Z',
   billable_duration: 90,
   technician_name: 'Jane Smith',
+}, {
+  ticket_id: 'ticket-child-1',
+  entry_id: 'entry-2',
+  start_time: '2025-06-11T13:00:00Z',
+  end_time: '2025-06-11T13:45:00Z',
+  billable_duration: 30,
+  technician_name: 'Alex Doe',
 }];
 
-function rowsFor(table: string, criteria: unknown): unknown[] {
+function rowsFor(table: string, criteria: unknown, ticketIds: string[]): unknown[] {
   if (table === 'tickets as t') {
     const where = (criteria ?? {}) as Record<string, unknown>;
     if ('t.ticket_id' in where) return [MASTER_ROW];
@@ -62,23 +71,27 @@ function rowsFor(table: string, criteria: unknown): unknown[] {
   }
   if (table === 'ticket_materials as tm') {
     if (state.materialsFail) throw new Error('Material lookup unavailable');
-    return state.materials;
+    return state.materials.filter((row) => ticketIds.includes(row.ticket_id as string));
   }
-  if (table === 'time_entries as te') return TIME_ROWS;
+  if (table === 'time_entries as te') return TIME_ROWS.filter((row) => ticketIds.includes(row.ticket_id));
   if (table === 'notification_subtypes') return [{ id: 1, category_id: 1 }];
   return [];
 }
 
 function makeBuilder(table: string) {
   let criteria: unknown = {};
-  const rows = () => rowsFor(table, criteria);
+  let ticketIds: string[] = [];
+  const rows = () => rowsFor(table, criteria, ticketIds);
   const builder: any = {
     select: () => builder,
     where: (added: unknown) => {
       criteria = { ...(criteria as object), ...(added as object) };
       return builder;
     },
-    whereIn: () => builder,
+    whereIn: (_column: string, ids: string[]) => {
+      ticketIds = ids;
+      return builder;
+    },
     // The builder is itself thenable, so it works both when awaited directly
     // and when knex-style terminators are chained after it.
     orderBy: () => builder,
@@ -142,7 +155,8 @@ describe('ticket closed email detail delivery', () => {
 
   beforeEach(() => {
     state.materials = [
-      { item_name: 'Toner', description: 'Black', quantity: 2, rate: 4500, currency_code: 'USD', is_billed: true },
+      { ticket_id: 'ticket-master', item_name: 'Toner', description: 'Black', quantity: 2, rate: 4500, currency_code: 'USD', is_billed: true },
+      { ticket_id: 'ticket-child-1', item_name: 'Cable', description: 'USB-C', quantity: 1, rate: 1500, currency_code: 'USD', is_billed: false },
     ];
     state.materialsFail = false;
     state.hours.mockClear();
@@ -170,8 +184,12 @@ describe('ticket closed email detail delivery', () => {
 
     const child = contactSends[1].context.ticket;
     expect(child.id).toBe(102);
-    expect(child.timeEntries).toEqual(master.timeEntries);
-    expect(child.materialsTotal).toBe('$90.00');
+    expect(child.timeEntries).toEqual([
+      { date: '06/11/2025', technician: 'Alex Doe', worked: '0 hrs 45 min', billable: '0 hrs 30 min' },
+    ]);
+    expect(child.materials).toEqual([expect.objectContaining({ name: 'Cable', amount: '$15.00' })]);
+    expect(child.materialsTotal).toBe('$15.00');
+    expect(child.totalTimeWorked).toBe('0 hrs 45 min');
     expect(child.remainingBlockHours).toBe('12 hrs 45 min');
 
     // Master and child share client-1, so the memoized resolver runs once.

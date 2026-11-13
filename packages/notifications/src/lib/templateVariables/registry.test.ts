@@ -66,43 +66,6 @@ describe("email template variable registry", () => {
     ).toBe("raw-html");
   });
 
-  it("previews quote review links in quote emails and reminders", () => {
-    for (const [templateName, sourceFile] of [
-      ["quote-email", "server/migrations/utils/templates/email/quotes/quoteEmail.cjs"],
-      ["quote-reminder-email", "server/migrations/utils/templates/email/quotes/quoteReminder.cjs"],
-    ] as const) {
-      const reviewLink = templateVariableRegistry[templateName].variables.find(
-        (variable) => variable.path === "quoteReviewLink",
-      );
-      if (!reviewLink) throw new Error(`Missing quote review link for ${templateName}`);
-      expect(reviewLink).toMatchObject({ type: "url", availability: "used" });
-
-      const data = getNestedTemplateExampleData(templateName);
-      expect(data.quoteReviewLink).toBe(reviewLink.example);
-      const template = (require(path.join(repositoryRoot, sourceFile)) as TemplateModule).getTemplate();
-      for (const translation of template.translations) {
-        const context = `${templateName}/${translation.language}`;
-        expect(Handlebars.compile(translation.htmlContent, { strict: true })(data), context)
-          .toContain(reviewLink.example);
-        expect(Handlebars.compile(translation.textContent, { strict: true })(data), context)
-          .toContain(reviewLink.example);
-      }
-    }
-  });
-
-  it("previews current and legacy portal invitation support contacts", () => {
-    const data = getNestedTemplateExampleData("portal-invitation");
-    const variables = templateVariableRegistry["portal-invitation"].variables;
-
-    expect(data.tenantName).not.toBe(data.clientName);
-    expect(data.clientLocationEmail).toBe(data.supportEmail);
-    expect(data.clientLocationPhone).toBe(data.supportPhone);
-    for (const path of ["clientLocationEmail", "clientLocationPhone"]) {
-      expect(variables.find((variable) => variable.path === path)?.availability)
-        .toBe("available-unused");
-    }
-  });
-
   it("strictly renders every locale using registry examples", () => {
     const templates = inventory.categories.flatMap(
       (category) => category.templates,

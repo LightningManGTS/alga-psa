@@ -1,4 +1,4 @@
-# Ticket-closed detail variables (1/3)
+# Ticket-closed detail variables 
 
 The existing `ticket-closed` notification exposes plain-data arrays for custom
 templates. Stock templates, notification routing and existing translations are
@@ -21,9 +21,25 @@ use `MM/DD/YYYY` in the email's existing effective timezone; rows are ordered by
 work timestamp, technician and entry ID. Multiple entries for the same technician
 remain separate. No translation lookup or HTML rendering is performed.
 
-When a ticket has no materials, `ticket.materialsTotal` is an empty string.
-The time totals and remaining balance are non-empty duration strings, including
-`0 hrs`, so guard the tables with their arrays rather than those totals.
+Each empty state is independent of the others:
+
+- No materials: `ticket.materials` is `[]` and `ticket.materialsTotal` is an
+  empty string.
+- No time entries: `ticket.timeEntries` is `[]` and both
+  `ticket.totalTimeWorked` and `ticket.totalTimeBillable` are `0 hrs`. A ticket
+  with materials but no time still reports `0 hrs`; a ticket with time but no
+  materials still reports its worked and billable time.
+- No client, or no available prepaid hour block: `ticket.remainingBlockHours`
+  is `0 hrs`.
+
+If a ticket's detail data cannot be built (for example a database error or an
+unsupported material currency), the email is still sent with every detail
+variable for that ticket in the empty state above, and a warning is logged
+with the tenant and ticket.
+
+The three duration values are always non-empty strings, so
+`{{#if ticket.totalTimeWorked}}` and similar checks are always true. Guard the
+tables with their array (for example `{{#if ticket.timeEntries}}`) instead.
 
 ## Two editable HTML examples
 
@@ -279,42 +295,22 @@ the remaining columns stay aligned.
 
 ## Plain-text content
 
-The plain-text alternative is derived from the rendered HTML, with entities such
-as `&amp;` decoded back to their characters, so write the HTML body as the single
-source of truth.
+Closed-ticket notifications do not send the template's Text Content field. The
+plain-text alternative of every closed-ticket email is generated from the
+rendered HTML body: tags are removed, common entities such as `&amp;` and
+`&lt;` are decoded back to their characters, and all whitespace, including line
+breaks, is collapsed to single spaces. The HTML body is therefore the only
+place to lay out these variables; text written in the Text Content field is
+saved with the template but not used for these emails.
 
-Use the same arrays without HTML. Individual field tokens are loop-local; for
-example, `{{name}}` or `{{this.name}}` belongs inside the device loop.
-In the editor's Variables panel, selecting an array inserts an editable loop at
-the cursor; its example shows the preview's sample output.
+Because line breaks are collapsed, put visible separators (labels, punctuation
+or table headers) in the HTML so the generated text stays readable, for
+example `<td>{{date}}</td>` cells under a `Date` header rather than relying on
+cell layout alone.
 
-```handlebars
-{{#if ticket.assets}}
-Devices:
-{{#each ticket.assets}}
-Name: {{name}}
-Type: {{assetType}}
-Manufacturer / Model: {{manufacturer}} {{model}}
-Serial #: {{serialNumber}}
+## Variables panel
 
-{{/each}}
-{{/if}}
-{{#if ticket.timeEntries}}
-Time Entries:
-{{#each ticket.timeEntries}}
-Date: {{date}}
-Technician: {{technician}}
-Worked: {{worked}}
-Billable: {{billable}}
-
-{{/each}}
-{{/if}}
-Total worked: {{ticket.totalTimeWorked}}
-Total billable: {{ticket.totalTimeBillable}}
-Remaining prepaid hours: {{ticket.remainingBlockHours}}
-```
-
-Use the same `{{#each ticket.assets}}` or `{{#each ticket.materials}}` pattern
-for those arrays. There are no `assetsHtml`, `materialsHtml` or `timeHtml`
-variables. Existing personal templates using those experimental variables must
-replace them with array loops before using the narrowed implementation.
+Individual field tokens are loop-local; for example, `{{name}}` or
+`{{this.name}}` belongs inside the device loop. In the editor's Variables
+panel, selecting an array inserts an editable loop at the cursor; its example
+shows the shape of one array row.

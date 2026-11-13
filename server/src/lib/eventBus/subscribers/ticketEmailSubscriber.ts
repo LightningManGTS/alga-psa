@@ -13,7 +13,10 @@ import {
 import { sendEventEmail, SendEmailParams } from '../../notifications/sendEventEmail';
 import {
   buildTicketEmailDetailBlocks,
+  buildTicketEmailDetailBlocksFromRows,
   emptyTicketEmailDetailBlocks,
+  fetchTicketEmailDetailRows,
+  type TicketDetailRows,
   type HourBlockMinutesResolver,
 } from '../../notifications/ticketEmailDetailBlocks';
 import { resolveCoManagedCommentStep, audienceRecipients, coManagedSendFields } from '../../notifications/coManagedCommentDelivery';
@@ -3836,6 +3839,18 @@ async function handleTicketClosed(event: TicketClosedEvent): Promise<void> {
 
       if (bundleChildren.length > 0) {
         const bundlePortalCtx = await resolvePortalLinkContext(db, tenantId);
+        // Same supplemental rule as the master: one batched fetch for every
+        // child; if it fails, children are still sent without details.
+        const childDetailRows = await fetchTicketEmailDetailRows(
+          db, tenantId, bundleChildren.map((child) => child.ticket_id),
+        ).catch((error): Map<string, TicketDetailRows> | null => {
+          logger.warn('[TicketEmailSubscriber] Failed to fetch bundled child detail rows; sending without details:', {
+            ticketIds: bundleChildren.map((child) => child.ticket_id),
+            tenantId,
+            error: error instanceof Error ? error.message : 'Unknown error',
+          });
+          return null;
+        });
         for (const child of bundleChildren) {
           const childPrimaryEmail = safeString(child.contact_email) || safeString(child.client_email);
           if (!childPrimaryEmail) continue;
@@ -3850,16 +3865,18 @@ async function handleTicketClosed(event: TicketClosedEvent): Promise<void> {
           }
 
           const { portalUrl: childPortalUrl } = buildTicketLinks(bundlePortalCtx, child.ticket_id);
-          const childDetailBlocks = await buildTicketEmailDetailBlocks(
-            db, tenantId, child.ticket_id, child.client_id, emailTimeZone, resolveHourBlockMinutes,
-          ).catch((error) => {
-            logger.warn('[TicketEmailSubscriber] Failed to build bundled child detail blocks; sending without details:', {
-              ticketId: child.ticket_id,
-              tenantId,
-              error: error instanceof Error ? error.message : 'Unknown error',
-            });
-            return emptyTicketEmailDetailBlocks();
-          });
+          const childDetailBlocks = childDetailRows
+            ? await buildTicketEmailDetailBlocksFromRows(
+              child.ticket_id, child.client_id, childDetailRows, emailTimeZone, resolveHourBlockMinutes,
+            ).catch((error) => {
+              logger.warn('[TicketEmailSubscriber] Failed to build bundled child detail blocks; sending without details:', {
+                ticketId: child.ticket_id,
+                tenantId,
+                error: error instanceof Error ? error.message : 'Unknown error',
+              });
+              return emptyTicketEmailDetailBlocks();
+            })
+            : emptyTicketEmailDetailBlocks();
 
           await sendIfUnique({
             tenantId,

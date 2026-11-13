@@ -11,6 +11,7 @@ const state = vi.hoisted(() => ({
   tenant: vi.fn(),
   joins: vi.fn(),
   where: vi.fn(),
+  whereIn: vi.fn(),
   hours: vi.fn(),
 }));
 vi.mock('@alga-psa/shared/billingClients/hourBlockService', () => ({
@@ -24,21 +25,36 @@ vi.mock('@alga-psa/db', () => ({
       table: (table: string) => {
         const rows = table.startsWith('asset_') ? state.assets
           : table.startsWith('ticket_materials') ? state.materials : state.time;
+        let ticketIds: string[] = [];
         const builder = {
           select: () => builder,
           where: (criteria: unknown) => { state.where(criteria); return builder; },
-          orderBy: () => Promise.resolve(rows),
+          whereIn: (column: string, ids: string[]) => {
+            state.whereIn(column, ids);
+            ticketIds = ids;
+            return builder;
+          },
+          // Fixture rows default to ticket-1; batch tests set ticket_id explicitly.
+          orderBy: () => Promise.resolve(rows
+            .map(row => ({ ticket_id: 'ticket-1', ...row }))
+            .filter(row => ticketIds.includes(row.ticket_id as string))),
         };
         return builder;
       },
     };
   },
 }));
-import { buildTicketEmailDetailBlocks, sortTimeEntriesChronologically } from '../../../lib/notifications/ticketEmailDetailBlocks';
+import {
+  buildTicketEmailDetailBlocks,
+  buildTicketEmailDetailBlocksFromRows,
+  fetchTicketEmailDetailRows,
+  sortTimeEntriesChronologically,
+} from '../../../lib/notifications/ticketEmailDetailBlocks';
 
 const knex = { raw: vi.fn() } as Pick<Knex, 'raw'> as Knex;
 const root = path.resolve(__dirname, '../../../../..');
-const build = () => buildTicketEmailDetailBlocks(knex, 'tenant-1', 'ticket-1', 'client-1');
+// Pinned to UTC so date expectations do not depend on the host timezone.
+const build = () => buildTicketEmailDetailBlocks(knex, 'tenant-1', 'ticket-1', 'client-1', 'UTC');
 
 describe('closed-ticket email detail data', () => {
   beforeEach(() => {
@@ -124,7 +140,8 @@ describe('closed-ticket email detail data', () => {
   it('uses the existing effective timezone for the work date', async () => {
     state.time = [{ entry_id: '1', start_time: '2025-06-10T01:00:00Z', end_time: '2025-06-10T02:00:00Z', billable_duration: null, technician_name: null }];
     const data = await buildTicketEmailDetailBlocks(knex, 'tenant-1', 'ticket-1', null, 'America/New_York');
-    expect(data.timeEntries[0].date).toBe('06/09/2025');
+    expect(data.timeEntries[0]).toEqual({ date: '06/09/2025', technician: '', worked: '1 hr', billable: '0 hrs' });
+    expect(data.totalTimeBillable).toBe('0 hrs');
     expect(data.remainingBlockHours).toBe('0 hrs');
     expect(state.hours).not.toHaveBeenCalled();
   });
@@ -138,18 +155,33 @@ describe('closed-ticket email detail data', () => {
     expect(rows[0].entry_id).toBe('B');
   });
 
-  it('scopes every query and join and wires details only into closed notifications', async () => {
+  it('scopes every query and join to the tenant', async () => {
     await build();
     expect(state.tenant).toHaveBeenCalledTimes(3);
     for (const call of state.tenant.mock.calls) expect(call).toEqual([knex, 'tenant-1']);
     expect(state.joins.mock.calls.map(call => call[1])).toEqual(['assets as a', 'asset_type_registry as atr', 'service_catalog as sc', 'users as u']);
-    expect(state.where).toHaveBeenCalledWith({ 'te.work_item_id': 'ticket-1', 'te.work_item_type': 'ticket' });
-    const source = readFileSync(path.join(root, 'server/src/lib/eventBus/subscribers/ticketEmailSubscriber.ts'), 'utf8');
-    const beforeClosed = source.slice(0, source.indexOf('async function handleTicketClosed('));
-    expect(beforeClosed.match(/await buildTicketEmailDetailBlocks/g)).toBeNull();
-    expect(source.match(/await buildTicketEmailDetailBlocks/g)).toHaveLength(2);
-    expect(source).toContain('db, tenantId, child.ticket_id, child.client_id, emailTimeZone');
-    expect(source).not.toContain("template: 'ticket-closed-client'");
-    expect(source).not.toContain("template: 'ticket-closed-internal'");
+    expect(state.whereIn).toHaveBeenCalledWith('te.work_item_id', ['ticket-1']);
+    expect(state.where).toHaveBeenCalledWith({ 'te.work_item_type': 'ticket' });
+  });
+
+  it('batches detail queries for several tickets and keeps each ticket to its own rows', async () => {
+    state.materials = [
+      { ticket_id: 'ticket-1', item_name: 'Toner', quantity: 1, rate: 4500, currency_code: 'USD', is_billed: false },
+      { ticket_id: 'ticket-2', item_name: 'Cable', quantity: 2, rate: 1000, currency_code: 'USD', is_billed: false },
+    ];
+    state.time = [
+      { ticket_id: 'ticket-2', entry_id: '2', start_time: '2025-06-10T09:00:00Z', end_time: '2025-06-10T09:30:00Z', billable_duration: 30, technician_name: 'Kim' },
+    ];
+    const rows = await fetchTicketEmailDetailRows(knex, 'tenant-1', ['ticket-1', 'ticket-2']);
+    expect(state.tenant).toHaveBeenCalledTimes(3);
+    expect(state.whereIn).toHaveBeenCalledWith('tm.ticket_id', ['ticket-1', 'ticket-2']);
+    const fromRows = (ticketId: string, clientId: string | null) =>
+      buildTicketEmailDetailBlocksFromRows(ticketId, clientId, rows, 'UTC', (id) => state.hours(knex, 'tenant-1', id));
+    expect(await fromRows('ticket-1', 'client-1')).toMatchObject({ materialsTotal: '$45.00', timeEntries: [], remainingBlockHours: '12 hrs 45 min' });
+    expect(await fromRows('ticket-2', null)).toMatchObject({
+      materialsTotal: '$20.00',
+      timeEntries: [{ date: '06/10/2025', technician: 'Kim', worked: '0 hrs 30 min', billable: '0 hrs 30 min' }],
+      remainingBlockHours: '0 hrs',
+    });
   });
 });
