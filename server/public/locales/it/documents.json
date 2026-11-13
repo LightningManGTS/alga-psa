@@ -145,13 +145,14 @@
       "ticketNumber": "Ticket n.",
       "customer": "Cliente",
       "assetTag": "Tag asset",
-      "serial": "Serie",
+      "serial": "Numero di serie",
       "custodyLocation": "Luogo di custodia",
       "nextAction": "Prossima azione",
       "assetSpecifications": "Specifiche dell'asset",
       "ticketDetails": "Dettagli del ticket",
       "imageNotIncluded": "[Immagine non inclusa]",
       "imageNotIncludedNamed": "[Immagine non inclusa: {{name}}]",
+      "unsupportedContent": "[Contenuto non incluso in questa stampa]",
       "assetName": "Nome",
       "make": "Marca",
       "model": "Modello",
@@ -161,7 +162,6 @@
       "storage": "Archiviazione",
       "cpuCoreCount_one": "{{count}} nucleo",
       "cpuCoreCount_other": "{{count}} nuclei",
-      "cpuCoreCount_few": "{{count}} nuclei",
       "cpuCoreCount_many": "{{count}} nuclei"
     }
   },

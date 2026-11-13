@@ -90,14 +90,6 @@ function isEffectivelyEmpty(html: string, text: string): boolean {
 // vanish silently: it is replaced by a visible marker and logged.
 export const UNSUPPORTED_RICH_TEXT_PLACEHOLDER = '[Unsupported content]';
 
-const loggedBlockWarnings = new Set<string>();
-
-function warnOnce(message: string): void {
-  if (loggedBlockWarnings.has(message)) return;
-  if (loggedBlockWarnings.size < 200) loggedBlockWarnings.add(message);
-  console.warn(message);
-}
-
 export interface RichTextRenderOptions {
   unsupportedContentPlaceholder?: string;
   missingImagePlaceholder?: string;
@@ -130,7 +122,7 @@ function unsupportedBlock(type: unknown, options?: RichTextRenderOptions): strin
   if (options?.onUnsupportedContent) {
     options.onUnsupportedContent(blockType);
   } else {
-    warnOnce(`[BlockNoteUtils] Replacing unsupported rich-text block with a placeholder: ${blockType}`);
+    console.warn(`[BlockNoteUtils] Replacing unsupported rich-text block with a placeholder: ${blockType}`);
   }
   return unsupportedPlaceholder(options);
 }
@@ -600,16 +592,10 @@ function customBlocksToMarkdown(blocks: Block[] | PartialBlock[], options?: Rich
         break;
 
       case 'quote':
-      case 'toggleListItem': {
-        const text = Array.isArray(block.content)
-          ? extractStyledTextFromContent(block.content)
-          : block.content == null && block.children?.length
-            ? ''
-            : unsupportedBlock(block.type, options);
-        return block.type === 'quote'
-          ? text.split('\n').map(line => `> ${line}`).join('\n')
-          : `- ${text}`;
-      }
+        return extractStyledTextFromContent(block.content).split('\n').map(line => `> ${line}`).join('\n');
+
+      case 'toggleListItem':
+        return `- ${extractStyledTextFromContent(block.content)}`;
 
       case 'divider':
         return '---';
@@ -637,7 +623,7 @@ function customBlocksToMarkdown(blocks: Block[] | PartialBlock[], options?: Rich
 
       default: {
         const unknownBlock = block as unknown as { type: string; content?: unknown; children?: unknown[] };
-        warnOnce(`[BlockNoteUtils] Exporting text from unknown block type: ${unknownBlock.type}`);
+        console.warn(`[BlockNoteUtils] Exporting text from unknown block type: ${unknownBlock.type}`);
         if (typeof unknownBlock.content === 'string') return unknownBlock.content;
         if (Array.isArray(unknownBlock.content)) return extractStyledTextFromContent(unknownBlock.content);
         if (unknownBlock.children?.length) return '';
@@ -1005,12 +991,7 @@ export function convertBlockNoteToHTML(blocks: any, options?: RichTextRenderOpti
         case 'toggleListItem': {
           flushListBuffer();
           const tag = block.type === 'quote' ? 'blockquote' : 'div';
-          const inner = Array.isArray(block.content)
-            ? extractStyledTextToHTML(block.content)
-            : block.content == null && block.children?.length
-              ? ''
-              : escapeHtml(unsupportedBlock(block.type, options));
-          output.push(`<${tag}${styleAttribute}>${inner}`);
+          output.push(`<${tag}${styleAttribute}>${extractStyledTextToHTML(block.content)}`);
           if (block.children?.length) processBlocksRecursive(block.children as Block[], currentLevel + 1);
           output.push(`</${tag}>`);
           break;
@@ -1052,7 +1033,7 @@ export function convertBlockNoteToHTML(blocks: any, options?: RichTextRenderOpti
         default: {
           flushListBuffer();
           const unknownBlock = block as unknown as { type: string; content?: unknown; children?: unknown[] };
-          warnOnce(`[BlockNoteUtils] Exporting text from unknown block type: ${unknownBlock.type}`);
+          console.warn(`[BlockNoteUtils] Exporting text from unknown block type: ${unknownBlock.type}`);
           if (Array.isArray(unknownBlock.content)) {
             output.push(`<div${styleAttribute}>${extractStyledTextToHTML(unknownBlock.content)}</div>`);
           } else if (typeof unknownBlock.content === 'string') {
@@ -1142,20 +1123,20 @@ function renderPMInlineContent(nodes: PMNode[] | undefined): string {
   }).join('');
 }
 
-function renderPMNode(node: PMNode, options?: RichTextRenderOptions): string {
+function renderPMNode(node: PMNode, options?: RichTextRenderOptions, struck = false): string {
   switch (node.type) {
     case 'doc':
       return (node.content ?? []).map(child => renderPMNode(child, options)).join('\n');
 
     case 'paragraph': {
       const inner = renderPMInlineContent(node.content);
-      return `<p>${inner || '<br>'}</p>`;
+      return `<p>${inner ? (struck ? `<s>${inner}</s>` : inner) : '<br>'}</p>`;
     }
 
     case 'heading': {
       const level = Math.min(Math.max(Number(node.attrs?.level) || 1, 1), 6);
       const inner = renderPMInlineContent(node.content);
-      return `<h${level}>${inner}</h${level}>`;
+      return `<h${level}>${struck && inner ? `<s>${inner}</s>` : inner}</h${level}>`;
     }
 
     case 'bullet_list':
@@ -1184,9 +1165,10 @@ function renderPMNode(node: PMNode, options?: RichTextRenderOptions): string {
 
     case 'task_item':
     case 'taskItem': {
-      const inner = (node.content ?? []).map(child => renderPMNode(child, options)).join('\n');
       const checked = node.attrs?.checked === true;
-      return `<div><span style="font-family:Arial,sans-serif;">${checked ? '&#9745;' : '&#9744;'}</span> ${checked ? `<s>${inner}</s>` : inner}</div>`;
+      // <s> is phrasing content, so a completed item strikes the text inside its own blocks.
+      const inner = (node.content ?? []).map(child => renderPMNode(child, options, checked)).join('\n');
+      return `<div><span style="font-family:Arial,sans-serif;">${checked ? '&#9745;' : '&#9744;'}</span> ${inner}</div>`;
     }
 
     case 'table':
@@ -1460,25 +1442,6 @@ function renderPMNodeMarkdown(
       const rows = (node.content ?? []).map(row =>
         `| ${(row.content ?? []).map(cell =>
           (cell.content ?? []).map(child => renderPMNodeMarkdown(child, options)).join(' ').replace(/\|/g, '\\|').replace(/\n/g, ' '),
-        ).join(' | ')} |`,
-      );
-      if (!rows.length) return '';
-      rows.splice(1, 0, `| ${(node.content?.[0]?.content ?? []).map(() => '---').join(' | ')} |`);
-      return rows.join('\n');
-    }
-
-    case 'video':
-    case 'audio':
-    case 'file':
-    case 'embed': {
-      const link = mediaLink(node.attrs ?? {}, node.type);
-      return link ? `[${link.label}](${link.url})` : UNSUPPORTED_RICH_TEXT_PLACEHOLDER;
-    }
-
-    case 'table': {
-      const rows = (node.content ?? []).map(row =>
-        `| ${(row.content ?? []).map(cell =>
-          (cell.content ?? []).map(child => renderPMNodeMarkdown(child)).join(' ').replace(/\|/g, '\\|').replace(/\n/g, ' '),
         ).join(' | ')} |`,
       );
       if (!rows.length) return '';

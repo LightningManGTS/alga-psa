@@ -152,6 +152,7 @@
       "ticketDetails": "Ticketdetails",
       "imageNotIncluded": "[Afbeelding niet opgenomen]",
       "imageNotIncludedNamed": "[Afbeelding niet opgenomen: {{name}}]",
+      "unsupportedContent": "[Inhoud niet opgenomen in deze afdruk]",
       "assetName": "Naam",
       "make": "Merk",
       "model": "Model",
@@ -161,7 +162,6 @@
       "storage": "Opslag",
       "cpuCoreCount_one": "{{count}} kern",
       "cpuCoreCount_other": "{{count}} kernen",
-      "cpuCoreCount_few": "{{count}} kernen",
       "cpuCoreCount_many": "{{count}} kernen"
     }
   },

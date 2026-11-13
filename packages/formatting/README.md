@@ -31,10 +31,6 @@ until rendering; flattening it first loses tables, headings, lists, and styles.
   can also supply `onUnsupportedContent` for source-specific logging; ticket
   email logs include the tenant, ticket, comment, and unsupported block type.
 
-The standard customer worksheet uses `ticketDescriptionRichText`. The legacy
-`ticketDescription` binding remains plain text for existing custom templates.
-Neither description binding is exposed on ordinary work tags.
-
 ## Images in ticket notifications
 
 Ticket comment and resolution emails, and rich-text descriptions in

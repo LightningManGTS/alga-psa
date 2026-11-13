@@ -152,6 +152,7 @@
       "ticketDetails": "⟦Ŧīƈķḗŧ Ḓḗŧȧīŀş⟧",
       "imageNotIncluded": "⟦[Īḿȧɠḗ ƞȯŧ īƞƈŀŭḓḗḓ]⟧",
       "imageNotIncludedNamed": "⟦[Īḿȧɠḗ ƞȯŧ īƞƈŀŭḓḗḓ: {{name}}]⟧",
+      "unsupportedContent": "⟦[Ƈȯƞŧḗƞŧ ƞȯŧ īƞƈŀŭḓḗḓ īƞ ŧħīş ƥřīƞŧȯŭŧ]⟧",
       "assetName": "⟦Ƞȧḿḗ⟧",
       "make": "⟦Ḿȧķḗ⟧",
       "model": "⟦Ḿȯḓḗŀ⟧",
@@ -161,7 +162,6 @@
       "storage": "⟦Şŧȯřȧɠḗ⟧",
       "cpuCoreCount_one": "⟦{{count}} ƈȯřḗ⟧",
       "cpuCoreCount_other": "⟦{{count}} ƈȯřḗş⟧",
-      "cpuCoreCount_few": "⟦{{count}} ƈȯřḗş⟧",
       "cpuCoreCount_many": "⟦{{count}} ƈȯřḗş⟧"
     }
   },

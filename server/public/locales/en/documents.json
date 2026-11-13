@@ -152,6 +152,7 @@
       "ticketDetails": "Ticket Details",
       "imageNotIncluded": "[Image not included]",
       "imageNotIncludedNamed": "[Image not included: {{name}}]",
+      "unsupportedContent": "[Content not included in this printout]",
       "assetName": "Name",
       "make": "Make",
       "model": "Model",
@@ -161,7 +162,6 @@
       "storage": "Storage",
       "cpuCoreCount_one": "{{count}} core",
       "cpuCoreCount_other": "{{count}} cores",
-      "cpuCoreCount_few": "{{count}} cores",
       "cpuCoreCount_many": "{{count}} cores"
     }
   },

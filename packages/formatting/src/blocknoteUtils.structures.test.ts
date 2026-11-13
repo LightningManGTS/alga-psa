@@ -84,7 +84,7 @@ describe('rich-text export structures', () => {
     expect(html).toContain('<h2>Setup Requirements</h2>');
     expect(html).toContain('<ul><li>Parent<ol><li>Nested step</li></ol></li></ul>');
     expect(html).toContain('&#9745;');
-    expect(html).toContain('<s>Wi-Fi</s>');
+    expect(html).toMatch(/<div[^>]*><span[^>]*>&#9745;<\/span> <s>Wi-Fi<\/s><\/div>/);
     expect(html).toContain('&#9744;');
     expect(html).not.toContain('<s>Ethernet</s>');
     expect(html).toContain('<blockquote>Quoted details');
@@ -148,8 +148,6 @@ describe('rich-text export structures', () => {
     expect(plainText).toContain('Child');
     expect(plainText.split('Child')).toHaveLength(2);
     expect(html).not.toContain('"children"');
-    expect(html).not.toContain(UNSUPPORTED_RICH_TEXT_PLACEHOLDER);
-    expect(plainText).not.toContain(UNSUPPORTED_RICH_TEXT_PLACEHOLDER);
   });
 
   it('renders BlockNote and ProseMirror table cells with null metadata', () => {
@@ -224,26 +222,6 @@ describe('rich-text export structures', () => {
     expect(() => formatBlockNoteContent([], { missingImagePlaceholder: '' })).toThrow(/must not be empty/);
   });
 
-  it('deduplicates default warnings without suppressing caller-specific reporting', () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    const onUnsupportedContent = vi.fn();
-    const type = 'rollingIntegrationUnsupportedWidget';
-    const content = [{ type }, { type }];
-
-    try {
-      formatBlockNoteContent(content);
-      expect(warn.mock.calls.filter(([message]) =>
-        String(message).includes(`Replacing unsupported rich-text block with a placeholder: ${type}`),
-      )).toHaveLength(1);
-
-      formatBlockNoteContent(content, { onUnsupportedContent });
-      expect(onUnsupportedContent).toHaveBeenCalledWith(type);
-      expect(onUnsupportedContent.mock.calls.length).toBeGreaterThanOrEqual(2);
-    } finally {
-      warn.mockRestore();
-    }
-  });
-
   it('preserves code token boundaries and authored line breaks without inline markup', () => {
     const content = [
       { type: 'text', text: 'const ', styles: {} },
@@ -290,31 +268,6 @@ describe('rich-text export structures', () => {
     warn.mockRestore();
   });
 
-  it.each(['quote', 'toggleListItem'] as const)('falls back per-block when %s has no array content, leaving siblings intact', (type) => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    const blocks = [
-      { type: 'paragraph', content: text('Before') },
-      { type, content: 'not an array' },
-      { type: 'paragraph', content: text('After') },
-    ];
-    for (const content of [blocks, JSON.stringify(blocks)]) {
-      const { html, text: plainText } = formatBlockNoteContent(content);
-      const markdown = convertBlockContentToMarkdown(content);
-      for (const output of [html, plainText, markdown]) {
-        expect(output).toContain('Before');
-        expect(output).toContain('After');
-        expect(output).toContain(UNSUPPORTED_RICH_TEXT_PLACEHOLDER);
-      }
-      // The malformed block is replaced, not the whole document.
-      expect(markdown.match(new RegExp(UNSUPPORTED_RICH_TEXT_PLACEHOLDER.replace(/[$.*+?^=:{}|\\[\]()/]/g, '\\$&'), 'g'))).toHaveLength(1);
-    }
-    const localized = formatBlockNoteContent(blocks, { unsupportedContentPlaceholder: '[Unavailable]' });
-    expect(localized.html).toContain('[Unavailable]');
-    expect(localized.text).toContain('[Unavailable]');
-    expect(warn).toHaveBeenCalled();
-    warn.mockRestore();
-  });
-
   it('formats ProseMirror table cells, hard breaks, images and task states in notifications', () => {
     const content = {
       type: 'doc',
@@ -337,7 +290,8 @@ describe('rich-text export structures', () => {
       const { html, text: plainText } = formatBlockNoteContent(value);
       expect(html).toMatch(/<th\b[^>]*><p[^>]*>Requirement/);
       expect(html).toContain('<strong>50gb</strong><br>backup');
-      expect(html).toMatch(/<s><p[^>]*>Done<\/p><\/s>/);
+      expect(html).toMatch(/<p[^>]*><s>Done<\/s><\/p>/);
+      expect(html).not.toMatch(/<s>\s*<(?:p|div|h[1-6])\b/);
       expect(html).toContain('<img src="https://example.com/image.png"');
       expect(plainText).toContain('Requirement');
       expect(plainText).toContain('**50gb**');

@@ -1687,6 +1687,8 @@
       "skipped_other": "{{count}} enregistrements ont été ignorés car ils n'ont pas pu être ouverts.",
       "missingImages_one": "{{count}} image des descriptions de tickets n'a pas pu être incluse. Elle est signalée sur la fiche.",
       "missingImages_other": "{{count}} images des descriptions de tickets n'ont pas pu être incluses. Elles sont signalées sur les fiches.",
+      "unavailableImages_one": "{{count}} image des descriptions de tickets n'a pas pu être lue depuis le stockage. Elle est signalée sur la fiche ; réessayez l'impression plus tard.",
+      "unavailableImages_other": "{{count}} images des descriptions de tickets n'ont pas pu être lues depuis le stockage. Elles sont signalées sur les fiches ; réessayez l'impression plus tard.",
       "template": "Modèle",
       "ticketTitle": "Imprimer les étiquettes de travail",
       "tooMany": "Vous pouvez imprimer au maximum {{max}} étiquettes à la fois.",
@@ -1708,13 +1710,13 @@
       "letter-full": "Feuille Letter, une par page"
     },
     "paper": {
-      "a4": "Feuille A4",
-      "letter": "Feuille Letter",
-      "legal": "Feuille Legal",
+      "a4": "A4",
+      "letter": "Letter",
+      "legal": "Legal",
       "custom": "{{width}} × {{height}} mm"
     },
     "standardTemplates": {
-      "standard-ticket-work-tag": "Étiquette de tâche de ticket standard",
+      "standard-ticket-work-tag": "Étiquette de travail de ticket standard",
       "standard-asset-label": "Étiquette d’actif standard",
       "standard-asset-label-code128": "Étiquette d’actif standard avec Code 128",
       "standard-stock-unit-label": "Étiquette d’unité de stock standard",

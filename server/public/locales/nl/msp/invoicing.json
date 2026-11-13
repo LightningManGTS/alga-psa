@@ -1459,7 +1459,6 @@
       "insertDataField": "+ Gegevensveld invoegen…",
       "searchDataFields": "Gegevensvelden zoeken…",
       "dataFields": "Gegevensvelden",
-      "noFieldSelected": "Geen veld geselecteerd",
       "bindingPathHint": "Voer een bindingspad in als het gewenste veld niet in de lijst staat.",
       "useFieldPicker": "Veldkiezer gebruiken",
       "currentField": "Huidig",
@@ -2950,7 +2949,7 @@
       "ticket-work-tag": "Ticketwerklabel",
       "asset-identity": "Assetlabel",
       "stock-unit-identity": "Voorraadlabel",
-      "staging-container": "Label voor verzameldoos",
+      "staging-container": "Label voor verzamelcontainer",
       "rma-work-tag": "RMA-label"
     },
     "labelFields": {

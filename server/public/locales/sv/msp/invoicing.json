@@ -1459,7 +1459,6 @@
       "insertDataField": "+ Infoga datafält…",
       "searchDataFields": "Sök datafält…",
       "dataFields": "Datafält",
-      "noFieldSelected": "Inget fält valt",
       "bindingPathHint": "Ange en bindningssökväg om fältet du behöver inte finns i listan.",
       "useFieldPicker": "Använd fältväljaren",
       "currentField": "Aktuellt",
@@ -2354,7 +2353,7 @@
       },
       "label_ticketDescription": {
         "label": "Ärendebeskrivning",
-        "description": "Ärendebeskrivning som ren text, endast tillgängligt på kundarbetsblad med stående sida som är minst 210 mm bred."
+        "description": "Ärendebeskrivning som ren text, endast tillgänglig på kundarbetsblad med stående sida som är minst 210 mm bred."
       },
       "label_custodyLocation": {
         "label": "Förvaringsplats",
@@ -2903,7 +2902,7 @@
         "labelClass": "Etikettklass",
         "labelFields": "Fält som visas på etiketten",
         "labelFieldsHint": "Postlänken (QR-kod) och identifieraren visas alltid.",
-        "worksheetPageHint": "En ärendeetikett med stående sida som är minst 210 mm bred (A4, Letter, Legal eller ett godkänt anpassat papper) skrivs ut som ett kundarbetsblad på en hel sida, med fälten för fullständigt serienummer och ärendebeskrivning. Mindre sidor skrivs ut som etiketter.",
+        "worksheetPageHint": "En ärendeetikett med stående sida som är minst 210 mm bred (A4, Letter, Legal eller lämpligt anpassat papper) skrivs ut som ett kundarbetsblad på en hel sida, med fälten för fullständigt serienummer och ärendebeskrivning. Mindre sidor skrivs ut som etiketter.",
         "worksheetFieldsHint": "Om serienumrets slut döljs döljs även hela serienumret; om detaljen döljs döljs även ärendebeskrivningen."
       },
       "placeholders": {

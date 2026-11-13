@@ -152,6 +152,7 @@
       "ticketDetails": "Ticketdetails",
       "imageNotIncluded": "[Bild nicht eingefügt]",
       "imageNotIncludedNamed": "[Bild nicht eingefügt: {{name}}]",
+      "unsupportedContent": "[Inhalt in diesem Ausdruck nicht enthalten]",
       "assetName": "Name",
       "make": "Hersteller",
       "model": "Modell",
@@ -161,7 +162,6 @@
       "storage": "Datenspeicher",
       "cpuCoreCount_one": "{{count}} Kern",
       "cpuCoreCount_other": "{{count}} Kerne",
-      "cpuCoreCount_few": "{{count}} Kerne",
       "cpuCoreCount_many": "{{count}} Kerne"
     }
   },
