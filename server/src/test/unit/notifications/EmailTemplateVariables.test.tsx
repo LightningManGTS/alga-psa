@@ -201,10 +201,5 @@ describe('ticket detail variable insertion', () => {
     expect(tokenForPath('ticket.timeEntries[].date')).toBe('{{this.date}}');
     expect(tokenForPath('ticket.description')).toBe('{{{ticket.description}}}');
     expect(tokenForPath('credits.items')).toBe('{{credits.items}}');
-
-    const creditArray = creditVariables.find((item) => item.path === 'credits.items');
-    if (!creditArray) throw new Error('Missing variable: credits.items');
-    const example = '{{#each credits.items}}{{this.creditId}}{{/each}}';
-    expect(getTemplateVariableToken({ ...creditArray, example })).toBe(example);
   });
 });

@@ -28,9 +28,6 @@ function tokenFor(variable: VariableDef): string {
   if (arrayRow) {
     return `{{#each ${variable.path}}}${arrayRow}{{/each}}`;
   }
-  if (variable.type === "array" && variable.example.includes("{{#each ")) {
-    return variable.example;
-  }
   const path = variable.path.includes("[].")
     ? `this.${variable.path.split("[].").pop()}`
     : variable.path;

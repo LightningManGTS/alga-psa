@@ -92,6 +92,8 @@ function makeBuilder(table: string) {
       ticketIds = ids;
       return builder;
     },
+    whereNot: () => builder,
+    andWhere: () => builder,
     // The builder is itself thenable, so it works both when awaited directly
     // and when knex-style terminators are chained after it.
     orderBy: () => builder,
