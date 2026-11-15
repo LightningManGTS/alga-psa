@@ -8,6 +8,7 @@ import {
   TicketRecordAccessDeniedError,
 } from '@alga-psa/authorization/ticketRecordAuthorization';
 import type { ManualInvoiceSourceLink } from '@alga-psa/types';
+import { commercialTimeEntrySql } from '@alga-psa/types';
 import {
   actionError,
   permissionError,
@@ -233,6 +234,7 @@ export const getTicketBillableItems = withAuth(async (
         'te.approval_status': 'APPROVED',
       })
       .where('te.billable_duration', '>', 0)
+      .whereRaw(commercialTimeEntrySql('te'))
       .whereNotNull('te.service_id')
       .orderBy('te.start_time', 'asc')
       .select(
@@ -398,6 +400,7 @@ export const generateTicketInvoice = withAuth(async (
           'te.approval_status': 'APPROVED',
         })
         .where('te.billable_duration', '>', 0)
+        .whereRaw(commercialTimeEntrySql('te'))
         .whereNotNull('te.service_id')
         .select(
           'te.entry_id',

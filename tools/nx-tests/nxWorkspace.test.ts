@@ -21,19 +21,32 @@ describe('nx workspace', () => {
 
   it('can generate an nx graph html file', { timeout: 180_000 }, async () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'alga-nx-graph-'));
+    const outFile = path.join(tmpDir, 'graph.html');
+
     try {
-      const outFile = path.join(tmpDir, 'graph.html');
-      // HTML exports expand inputs for every selected task. Restrict the task
-      // graph to a real server target rather than expanding every workspace target.
-      await runNx(['graph', '--file', outFile, '--focus', 'server', '--targets=test:e2e:email-settings']);
+      // HTML output embeds a task graph plus expanded task inputs. Without
+      // --targets, Nx builds that for every target of every project and expands
+      // each task's inputs against the whole workspace file list (--focus only
+      // narrows the project view), so the cost grows with the repo and drifted
+      // past the timeout. Scoping to the build target keeps the same generation
+      // path while bounding the work.
+      await runNx(['graph', '--file', outFile, '--focus', 'server', '--targets', 'build']);
 
       expect(fs.statSync(outFile).size).toBeGreaterThan(0);
-      const environment = fs.readFileSync(path.join(tmpDir, 'static', 'environment.js'), 'utf8');
-      const graphJson = environment.match(/window\.taskGraphResponse = (.+);/)?.[1];
-      expect(graphJson).toBeDefined();
-      const graph: { error: string | null; taskGraph: { tasks: Record<string, unknown> } } = JSON.parse(graphJson!);
-      expect(graph.error).toBeNull();
-      expect(graph.taskGraph.tasks).toHaveProperty('server:test:e2e:email-settings');
+      expect(fs.readFileSync(outFile, 'utf8')).toContain('static/environment.js');
+
+      const environment: Record<string, any> = {};
+      new Function('window', fs.readFileSync(path.join(tmpDir, 'static', 'environment.js'), 'utf8'))(environment);
+
+      const projectNames = environment.projectGraphResponse.projects.map((p: { name: string }) => p.name);
+      expect(projectNames).toContain('server');
+
+      const { taskGraph, error } = environment.taskGraphResponse;
+      expect(error).toBeNull();
+      const taskIds = Object.keys(taskGraph.tasks);
+      expect(taskIds).toContain('server:build');
+      expect(taskIds.every((id) => id.split(':')[1] === 'build')).toBe(true);
+      expect(environment.expandedTaskInputsResponse['server:build']).toBeDefined();
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }

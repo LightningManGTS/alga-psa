@@ -34,6 +34,7 @@ export const TICKET_ID_KEYED_GROUPS = [
   'fixedFees',
   'tiles',
   'tags',
+  'responsibility',
   // Not ticket-id keyed, but keyed by the caller-supplied `ticket.tenant`:
   // a non-native source must supply tenant-safe avatar reads of its own.
   'avatars',

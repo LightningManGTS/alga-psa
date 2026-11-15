@@ -82,6 +82,34 @@ describe('ticketCommentInlineImageEmail', () => {
     ]);
   });
 
+  it('downloads the image inside the ticket tenant, which the subscriber has not entered', async () => {
+    const { db } = createMockDb([
+      { document_id: 'doc-1', document_name: 'clipboard-image.png', file_id: 'file-1', mime_type: 'image/png' },
+    ]);
+    let tenantDuringDownload: string | undefined;
+    vi.spyOn(StorageService, 'downloadFile').mockImplementation(async () => {
+      tenantDuringDownload = getTenantContext();
+      return {
+        buffer: Buffer.from('png-bytes'),
+        metadata: { original_name: 'clipboard-image.png', mime_type: 'image/png', size: 9 },
+      };
+    });
+
+    expect(getTenantContext()).toBeUndefined();
+    await rewriteTicketCommentImagesToCid({
+      db,
+      tenantId: 'tenant-1',
+      ticketId: 'ticket-1',
+      html: '<p><img src="/api/documents/view/file-1" /></p>',
+      authorizeDocument: authorized,
+      missingImageText,
+      allowInlineImages: true,
+      supportsAttachments: true,
+    });
+
+    expect(tenantDuringDownload).toBe('tenant-1');
+  });
+
   it('T018: shows a marker instead of an authenticated URL when CID generation fails', async () => {
     const { db } = createMockDb([
       {

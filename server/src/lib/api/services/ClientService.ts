@@ -3,6 +3,7 @@
  * Business logic for client-related operations
  */
 
+import { CLIENT_BILLING_PERMISSION, omitClientBillingColumns } from '@alga-psa/auth/lib/clientBillingProjection';
 import { hasApiContextPermission } from '../middleware/apiContextPermission';
 import { deactivateClientScopedChecklistTemplates } from '@alga-psa/shared/lib/ticketChecklists';
 import { deactivateClientScopedTicketTemplates } from '@alga-psa/shared/lib/ticketTemplates';
@@ -17,6 +18,7 @@ import { displayAudienceForUser } from '@alga-psa/tags/lib/tagDisplayRules';
 import { availableCreditSubquerySql } from '@alga-psa/billing/lib/creditBalance';
 import { isEnterprise } from '@alga-psa/core';
 import { deleteEntityWithValidation } from '@alga-psa/core/server';
+import { assertClientPatchKeepsSeatArrangement, ClientSeatArrangementError } from '@alga-psa/core/config/deletion';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../../api/middleware/apiMiddleware';
 import {
   createLocation as createClientLocation,
@@ -346,14 +348,24 @@ export class ClientService extends BaseService<IClient> {
         { taggedType: 'client', ids: clientsWithLogos.map((client) => client.client_id) },
       ]);
 
+      const billingVisible = await this.clientBillingVisible(context, trx);
       return {
-        data: clientsWithLogos.map((client) => ({
-          ...client,
-          display_tags: displayTags.get(displayTagKey('client', client.client_id)) ?? [],
-        })),
+        data: clientsWithLogos.map((client) => {
+          const row = { ...client, display_tags: displayTags.get(displayTagKey('client', client.client_id)) ?? [] };
+          return billingVisible ? row : omitClientBillingColumns(row);
+        }),
         total: parseInt(count as string)
       };
     });
+  }
+
+  /**
+   * Whether the caller sees a client's billing columns (clientBillingProjection). Decided like every other
+   * API permission: the effective user and, when acting through a principal, the principal must both hold
+   * it; a context with no user sees none.
+   */
+  private clientBillingVisible(context: ServiceContext, trx: Knex.Transaction): Promise<boolean> {
+    return hasApiContextPermission(context, CLIENT_BILLING_PERMISSION.resource, CLIENT_BILLING_PERMISSION.action, trx);
   }
 
   /**
@@ -391,12 +403,13 @@ export class ClientService extends BaseService<IClient> {
         ]),
       ]);
 
-      return withClientSinceDateString({
+      const row = withClientSinceDateString({
         ...stripLegacyClientTaxId(client),
         logoUrl,
         // Chip tags (tag display rules for the caller's audience), as the web pickers and ticket header show them.
         display_tags: displayTags.get(displayTagKey('client', id)) ?? [],
       }) as unknown as IClient;
+      return (await this.clientBillingVisible(context, trx)) ? row : omitClientBillingColumns(row);
     });
   }
 
@@ -720,6 +733,11 @@ export class ClientService extends BaseService<IClient> {
         delete updateData.properties;
       }
       const updatedFieldKeys = Object.keys(updateData);
+
+      // LEVERAGE: pattern client-inactive-write — every clients.is_inactive write asks the seat arrangement guard in its transaction
+      await assertClientPatchKeepsSeatArrangement(trx, context.tenant, id, updateData).catch((error: unknown) => {
+        throw error instanceof ClientSeatArrangementError ? new ConflictError(error.message) : error;
+      });
 
       // Update client
       const [client] = await db.table('clients')

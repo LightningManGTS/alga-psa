@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { commercialTimeEntryRowFilter } from '../../../../test-utils/commercialTimeEntryMock';
 import { buildClientCadenceDueSelectionInput } from '@alga-psa/shared/billingClients/recurringRunExecutionIdentity';
 import { ManualInvoiceError } from '../../../../../packages/billing/src/errors/manualInvoiceErrors';
 
@@ -101,6 +102,12 @@ function createQueryBuilder(rows: Row[], tableName: string) {
         const value = row[normalizeColumn(column)];
         return value === undefined ? true : !values.includes(value);
       });
+      return builder;
+    }),
+    whereRaw: vi.fn((sql: string) => {
+      const commercialOnly = commercialTimeEntryRowFilter(sql);
+      if (!commercialOnly) throw new Error(`Unsupported whereRaw expression: ${sql}`);
+      resultRows = resultRows.filter(commercialOnly);
       return builder;
     }),
     modify: vi.fn((callback: (qb: any) => void) => {

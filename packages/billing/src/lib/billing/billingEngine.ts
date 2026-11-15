@@ -13,6 +13,7 @@ import {
   normalizeResolvedContractCharge,
 } from "./domain/calculateContractCharge";
 import { createTenantKnex, tenantDb, withTransaction } from "@alga-psa/db";
+import { commercialTimeEntrySql } from "@alga-psa/types";
 import { ensureUtcMidnightIsoDate, normalizeAnchorSettingsForCycle } from "@alga-psa/shared/billingClients/billingCycleAnchors";
 import type { CadenceAdvanceRule } from "@alga-psa/shared/billingClients/cadenceBoundaryAdvance";
 import { resolvePrepaidBlockBusinessDate, toDateOnly as toPrepaidBlockDateOnly } from "../prepaidBlockDates";
@@ -2178,7 +2179,8 @@ export class BillingEngine {
                     AND te.work_item_id = tickets.ticket_id
                     AND te.invoiced = false
                     AND te.approval_status = 'APPROVED'
-                    AND te.billable_duration > 0)`,
+                    AND te.billable_duration > 0
+                    AND ${commercialTimeEntrySql('te')})`,
       );
     } else {
       query.whereRaw(
@@ -2189,6 +2191,7 @@ export class BillingEngine {
                     AND te.invoiced = false
                     AND te.approval_status = 'APPROVED'
                     AND te.billable_duration > 0
+                    AND ${commercialTimeEntrySql('te')}
                     AND te.start_time >= ?
                     AND te.end_time < ?)`,
         [billingPeriod.startDate, billingPeriod.endDate],
@@ -2701,6 +2704,7 @@ export class BillingEngine {
         "time_entries.tenant": this.tenant,
       })
       .where("time_entries.invoiced", false)
+      .whereRaw(commercialTimeEntrySql("time_entries"))
       .whereNull("time_entries.contract_line_id")
       .whereNotNull("time_entries.service_id")
       .where("time_entries.approval_status", "APPROVED")
@@ -3199,6 +3203,7 @@ export class BillingEngine {
         "hb.client_id": clientId,
         "te.invoiced": false,
       })
+      .whereRaw(commercialTimeEntrySql("te"))
       .whereNull("te.contract_line_id")
       .where("te.approval_status", "APPROVED")
       .where("te.start_time", ">=", billingPeriod.startDate)
@@ -3298,6 +3303,7 @@ export class BillingEngine {
         "hb.contract_line_id": clientContractLine.contract_line_id,
         "te.invoiced": false,
       })
+      .whereRaw(commercialTimeEntrySql("te"))
       .where("te.approval_status", "APPROVED");
     if (carriedWindows.length === 0) {
       query
@@ -5978,6 +5984,7 @@ export class BillingEngine {
         "time_entries.tenant": client.tenant,
       })
       .where("time_entries.invoiced", false)
+      .whereRaw(commercialTimeEntrySql("time_entries"))
       .whereIn("time_entries.service_id", configuredServiceIds)
       .where("time_entries.billable_duration", ">", 0)
       .where(function (this: Knex.QueryBuilder) {
@@ -6220,6 +6227,7 @@ export class BillingEngine {
     }> = await query
       .where("hb.contract_line_id", contractLineId)
       .whereIn("hba.time_entry_id", entryIds)
+      .whereRaw(commercialTimeEntrySql("te"))
       .select(
         "hba.time_entry_id",
         "hb.status",

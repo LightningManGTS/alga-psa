@@ -292,6 +292,8 @@ export async function rewriteTicketCommentImagesToCid(params: {
     }
 
     try {
+      // The storage layer resolves its tenant from async context, which an
+      // event subscriber has not entered.
       const downloadResult = await runWithTenant(params.tenantId, () => StorageService.downloadFile(fileId));
       if (!Buffer.isBuffer(downloadResult.buffer)) {
         throw new Error('Storage returned an invalid inline-image buffer');
