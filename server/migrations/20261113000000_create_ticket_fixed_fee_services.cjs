@@ -1,11 +1,7 @@
 const { ensureTenantDistribution, ensureCompositeFk, hasConstraint } = require('./utils/citusDistribution.cjs');
 
 exports.up = async function up(knex) {
-  const tableExists = await knex.schema.hasTable('ticket_fixed_fee_services');
-  if (tableExists && !await hasConstraint(knex, 'ticket_fixed_fee_services', 'ticket_fixed_fee_tenant_fk')) {
-    throw new Error('Existing ticket_fixed_fee_services table is missing ticket_fixed_fee_tenant_fk; investigate its migration history before retrying.');
-  }
-  if (!tableExists) {
+  if (!await knex.schema.hasTable('ticket_fixed_fee_services')) {
     await knex.schema.createTable('ticket_fixed_fee_services', (table) => {
       table.uuid('tenant').notNullable();
       table.uuid('entry_id').notNullable().defaultTo(knex.raw('gen_random_uuid()'));
@@ -31,9 +27,7 @@ exports.up = async function up(knex) {
     });
   }
   await ensureTenantDistribution(knex, 'ticket_fixed_fee_services');
-  if (!tableExists) {
-    // migration-lint: allow 2 - This constraint is added only to a newly created empty table.
-    // migration-lint: allow 7 - The table-existence guard preserves the existing constraint on retries.
+  if (!await hasConstraint(knex, 'ticket_fixed_fee_services', 'ticket_fixed_fee_tenant_fk')) {
     await knex.raw(
       'ALTER TABLE ticket_fixed_fee_services ADD CONSTRAINT ticket_fixed_fee_tenant_fk FOREIGN KEY (tenant) REFERENCES tenants(tenant)',
     );
@@ -57,11 +51,5 @@ exports.up = async function up(knex) {
 exports.config = { transaction: false };
 
 exports.down = async function down(knex) {
-  // A previously applied migration under the original filename still owns the table.
-  const original = await knex('knex_migrations')
-    .where({ name: '20261028193400_create_ticket_fixed_fee_services.cjs' })
-    .first('id');
-  if (!original) {
-    await knex.schema.dropTable('ticket_fixed_fee_services');
-  }
+  await knex.schema.dropTable('ticket_fixed_fee_services');
 };
