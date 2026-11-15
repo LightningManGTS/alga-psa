@@ -3274,10 +3274,5 @@
     "loading": "Laddar kategorier...",
     "loadError": "Det gick inte att ladda kategorier. Försök igen.",
     "retry": "Försök igen"
-  },
-  "emailRichText": {
-    "imageNotIncluded": "[Bilden ingår inte]",
-    "protectedContentNotIncluded": "[Skyddat innehåll ingår inte]",
-    "unsupportedContent": "[Innehåll som inte stöds]"
   }
 }

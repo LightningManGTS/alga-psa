@@ -3440,10 +3440,5 @@
     "loading": "Ładowanie kategorii...",
     "loadError": "Nie można wczytać kategorii. Spróbuj ponownie.",
     "retry": "Spróbuj ponownie"
-  },
-  "emailRichText": {
-    "imageNotIncluded": "[Obraz nie został dołączony]",
-    "protectedContentNotIncluded": "[Chroniona zawartość nie została dołączona]",
-    "unsupportedContent": "[Nieobsługiwana treść]"
   }
 }

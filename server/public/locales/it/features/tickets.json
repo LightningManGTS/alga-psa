@@ -3420,10 +3420,5 @@
     "loading": "Caricamento delle categorie...",
     "loadError": "Impossibile caricare le categorie. Riprova.",
     "retry": "Riprova"
-  },
-  "emailRichText": {
-    "imageNotIncluded": "[Immagine non inclusa]",
-    "protectedContentNotIncluded": "[Contenuto protetto non incluso]",
-    "unsupportedContent": "[Contenuto non supportato]"
   }
 }

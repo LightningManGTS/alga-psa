@@ -3420,10 +3420,5 @@
     "loading": "Categorieën laden...",
     "loadError": "Categorieën konden niet worden geladen. Probeer het opnieuw.",
     "retry": "Opnieuw proberen"
-  },
-  "emailRichText": {
-    "imageNotIncluded": "[Afbeelding niet opgenomen]",
-    "protectedContentNotIncluded": "[Beveiligde inhoud niet opgenomen]",
-    "unsupportedContent": "[Niet-ondersteunde inhoud]"
   }
 }
