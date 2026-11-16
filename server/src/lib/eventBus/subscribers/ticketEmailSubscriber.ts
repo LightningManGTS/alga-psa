@@ -72,10 +72,18 @@ import {
   readTicketCommentAudience,
   planTicketEnvelope,
   selectAudienceContent,
+  recipientInScope,
   recipientRendering,
   type AudienceContent,
   type TicketNotificationRecipient,
+  type TicketRendering,
 } from '@shared/lib/notificationAudience';
+import {
+  projectTicketEmailContext,
+  resolveTicketEmailTemplate,
+  ticketEmailRecipientVariables,
+} from '@alga-psa/notifications/lib/templateVariables/ticketEmailAudience';
+import { optionalEmailData } from '../../notifications/optionalEmailData';
 import type { CommentEmailRecipient, CommentEmailRecipients } from '@alga-psa/types';
 import type { EmailAddress } from '../../../types/email.types';
 import {
@@ -89,7 +97,12 @@ import {
  * says it for every send: a message that does not is never mailed to a seat technician.
  */
 type TicketEmailAudience = ReadonlyArray<AudienceContent<Record<string, unknown>>>;
-type AudiencedSendEmailParams = SendEmailParams & { audienceContent?: TicketEmailAudience };
+/**
+ * `addressedAs` is who the send path addressed: `client` (requester contact, external watcher,
+ * copied address) or `msp` (staff). A send names the internal template and the person; the
+ * template, the variables and `recipient.isInternal` follow in `sendTicketEmailMessage`.
+ */
+type AudiencedSendEmailParams = SendEmailParams & { audienceContent?: TicketEmailAudience; addressedAs: TicketRendering };
 type TicketNotificationParams = Omit<AudiencedSendEmailParams, 'mailClass' | 'boardId'> & { boardId?: string };
 
 /** Stable ledger consumer id for the ticket email subscriber. */
@@ -674,6 +687,10 @@ async function sendNotificationIfEnabled(
  * technician gets the first rendering their audience admits, with the audience recorded on the
  * reply token so their reply is stored with it, or gets nothing: ticket out of scope, private
  * content, or a message that does not declare what it quotes.
+ *
+ * Then the rendering is settled for everyone (`recipientRendering`): a `client` rendering gets
+ * the client template where one exists and a context holding client-safe variables only, and
+ * every context carries `recipient.isInternal`.
  */
 async function sendTicketEmailMessage(
   knex: Knex,
@@ -682,8 +699,8 @@ async function sendTicketEmailMessage(
   recipient: TicketNotificationRecipient,
   recipientUserId?: string
 ): Promise<boolean> {
-  // `audienceContent` is read here and never travels further (email service, retry queue).
-  const { audienceContent, ...unaudienced } = audiencedParams;
+  // `audienceContent` and `addressedAs` are read here and never travel further (email service, retry queue).
+  const { audienceContent, addressedAs, ...unaudienced } = audiencedParams;
   let params: SendEmailParams = unaudienced;
   try {
     const scopedDb = tenantDb(knex, params.tenantId);
@@ -700,7 +717,7 @@ async function sendTicketEmailMessage(
     // An external party (a seat technician outside the ticket's scope) is never handed the MSP
     // link, whichever path built the message (watcher, assignee, agent): it is swapped for the
     // portal link here, where every recipient passes.
-    const externalTicketId = recipientRendering(recipient) === 'client' && recipient.seat
+    const externalTicketId = recipient.seat && !recipientInScope(recipient)
       ? params.replyContext?.ticketId : undefined;
     const externalLinks = externalTicketId ? await resolveTicketLinks(knex, params.tenantId, externalTicketId) : null;
     const toPortal = <V,>(value: V): V => {
@@ -731,6 +748,23 @@ async function sendTicketEmailMessage(
         } : {}),
       };
     }
+
+    const rendering = recipientRendering(recipient, addressedAs);
+    const resolvedTemplate = resolveTicketEmailTemplate(params.template, subtypeName, rendering);
+    subtypeName = resolvedTemplate.subtype;
+    const projection = projectTicketEmailContext(params.context, rendering);
+    if (projection.dropped.length > 0) {
+      logger.debug('[TicketEmailSubscriber] Variables left out of the client rendering:', {
+        tenantId: params.tenantId,
+        template: resolvedTemplate.template,
+        dropped: projection.dropped,
+      });
+    }
+    params = {
+      ...params,
+      template: resolvedTemplate.template,
+      context: { ...projection.context, ...ticketEmailRecipientVariables(rendering) },
+    };
 
     const gate = await resolveNotificationGate(knex, params.tenantId, subtypeName);
 
@@ -1492,11 +1526,12 @@ async function handleTicketCreated(event: TicketCreatedEvent): Promise<void> {
         ...emailEntityContext,
         contactId: primaryContactId,
         to: primaryEmail,
+        addressedAs: 'client',
         subject: emailSubject,
-        template: 'ticket-created-client',
+        template: 'ticket-created',
         context: buildContext(portalUrl),
         replyContext,
-      }, 'Ticket Created Client');
+      }, 'Ticket Created');
     }
 
     // Send to assigned user if different from primary recipient
@@ -1505,6 +1540,7 @@ async function handleTicketCreated(event: TicketCreatedEvent): Promise<void> {
         tenantId,
         ...emailEntityContext,
         to: assignedEmail,
+        addressedAs: 'msp',
         subject: emailSubject,
         template: 'ticket-created',
         context: buildContext(internalUrl),
@@ -1517,6 +1553,7 @@ async function handleTicketCreated(event: TicketCreatedEvent): Promise<void> {
         tenantId,
         ...emailEntityContext,
         to: recipient.email,
+        addressedAs: 'msp',
         subject: `New Ticket on ${boardName} • ${ticket.title} (${priorityName})`,
         template: 'ticket-board-created',
         context: buildContext(internalUrl),
@@ -1532,6 +1569,7 @@ async function handleTicketCreated(event: TicketCreatedEvent): Promise<void> {
         tenantId,
         ...emailEntityContext,
         to: address.email,
+        addressedAs: 'msp',
         subject: `New Ticket on ${boardName} • ${ticket.title} (${priorityName})`,
         template: 'ticket-board-created',
         context: buildContext(internalUrl),
@@ -1567,11 +1605,12 @@ async function handleTicketCreated(event: TicketCreatedEvent): Promise<void> {
           tenantId,
           ...emailEntityContext,
           to: watcherEmail,
+          addressedAs: isInternalWatcher ? 'msp' : 'client',
           subject: emailSubject,
-          template: isInternalWatcher ? 'ticket-created' : 'ticket-created-client',
+          template: 'ticket-created',
           context: buildContext(isInternalWatcher ? internalUrl : portalUrl),
           replyContext,
-        }, isInternalWatcher ? 'Ticket Created' : 'Ticket Created Client');
+        }, 'Ticket Created');
       },
       {
         excludeEmails: sentEmails,
@@ -1684,6 +1723,7 @@ async function handleTicketStatusChanged(event: { id?: string; payload: any }): 
         entityType: 'ticket',
         entityId: ticket.ticket_id || payload.ticketId,
         to: recipient.email,
+        addressedAs: 'msp',
         subject: statusSubject,
         template: 'ticket-board-status-entered',
         context,
@@ -1706,6 +1746,7 @@ async function handleTicketStatusChanged(event: { id?: string; payload: any }): 
         entityType: 'ticket',
         entityId: ticket.ticket_id || payload.ticketId,
         to: address.email,
+        addressedAs: 'msp',
         subject: statusSubject,
         template: 'ticket-board-status-entered',
         context,
@@ -1989,14 +2030,15 @@ async function handleTicketUpdated(event: TicketUpdatedEvent): Promise<void> {
         ...emailEntityContext,
         contactId: primaryContactId,
         to: primaryEmail,
+        addressedAs: 'client',
         subject: `Ticket Updated: ${ticket.title}`,
-        template: 'ticket-updated-client',
+        template: 'ticket-updated',
         context: buildContext(portalUrl),
         replyContext: {
           ticketId: ticket.ticket_id || payload.ticketId,
           threadId: ticket.email_metadata?.threadId
         },
-      }, 'Ticket Updated Client');
+      }, 'Ticket Updated');
     }
 
     // Send to assigned user if different from primary recipient
@@ -2011,6 +2053,7 @@ async function handleTicketUpdated(event: TicketUpdatedEvent): Promise<void> {
         tenantId,
         ...emailEntityContext,
         to: assignedEmail,
+        addressedAs: 'msp',
         subject: `Ticket Updated: ${ticket.title}`,
         template: 'ticket-updated',
         context: buildContext(internalUrl),
@@ -2032,6 +2075,7 @@ async function handleTicketUpdated(event: TicketUpdatedEvent): Promise<void> {
             tenantId,
             ...emailEntityContext,
             to: resource.email ?? '',
+            addressedAs: 'msp',
             subject: `Ticket Updated: ${ticket.title}`,
             template: 'ticket-updated',
             context: buildContext(internalUrl),
@@ -2064,14 +2108,15 @@ async function handleTicketUpdated(event: TicketUpdatedEvent): Promise<void> {
           tenantId,
           ...emailEntityContext,
           to: watcherEmail,
+          addressedAs: isInternalWatcher ? 'msp' : 'client',
           subject: `Ticket Updated: ${ticket.title}`,
-          template: isInternalWatcher ? 'ticket-updated' : 'ticket-updated-client',
+          template: 'ticket-updated',
           context: buildContext(isInternalWatcher ? internalUrl : portalUrl),
           replyContext: {
             ticketId: ticket.ticket_id || payload.ticketId,
             threadId: ticket.email_metadata?.threadId
           },
-        }, isInternalWatcher ? 'Ticket Updated' : 'Ticket Updated Client');
+        }, 'Ticket Updated');
       },
       {
         excludeEmails: sentEmails,
@@ -2418,14 +2463,15 @@ export async function handleAccumulatedTicketUpdates(notification: PendingNotifi
         ...emailEntityContext,
         contactId: primaryContactId,
         to: primaryEmail,
+        addressedAs: 'client',
         subject: `Ticket Updated: ${ticket.title}${subjectSuffix}`,
-        template: 'ticket-updated-client',
+        template: 'ticket-updated',
         context: buildContext(portalUrl),
         replyContext: {
           ticketId: ticket.ticket_id || ticketId,
           threadId: ticket.email_metadata?.threadId
         },
-      }, 'Ticket Updated Client');
+      }, 'Ticket Updated');
     }
 
     if (!shouldSendInternalTicketEmail(suppression)) {
@@ -2438,6 +2484,7 @@ export async function handleAccumulatedTicketUpdates(notification: PendingNotifi
         tenantId,
         ...emailEntityContext,
         to: assignedEmail,
+        addressedAs: 'msp',
         subject: `Ticket Updated: ${ticket.title}${subjectSuffix}`,
         template: 'ticket-updated',
         context: buildContext(internalUrl),
@@ -2457,6 +2504,7 @@ export async function handleAccumulatedTicketUpdates(notification: PendingNotifi
             tenantId,
             ...emailEntityContext,
             to: resource.email ?? '',
+            addressedAs: 'msp',
             subject: `Ticket Updated: ${ticket.title}${subjectSuffix}`,
             template: 'ticket-updated',
             context: buildContext(internalUrl),
@@ -2488,14 +2536,15 @@ export async function handleAccumulatedTicketUpdates(notification: PendingNotifi
           tenantId,
           ...emailEntityContext,
           to: watcherEmail,
+          addressedAs: isInternalWatcher ? 'msp' : 'client',
           subject: `Ticket Updated: ${ticket.title}${subjectSuffix}`,
-          template: isInternalWatcher ? 'ticket-updated' : 'ticket-updated-client',
+          template: 'ticket-updated',
           context: buildContext(isInternalWatcher ? internalUrl : portalUrl),
           replyContext: {
             ticketId: ticket.ticket_id || ticketId,
             threadId: ticket.email_metadata?.threadId
           },
-        }, isInternalWatcher ? 'Ticket Updated' : 'Ticket Updated Client');
+        }, 'Ticket Updated');
       },
       {
         excludeEmails: sentEmails,
@@ -2549,12 +2598,11 @@ async function sendTicketAssignedNotifications(
       return;
     }
 
-    const assignerName = assignerUserId
-      ? await tenantDb(db, tenantId).table('users')
-          .where({ user_id: assignerUserId })
-          .first()
-          .then((user: any) => user ? `${user.first_name} ${user.last_name}` : 'System')
-      : 'System';
+    const assignerName = await optionalEmailData('the assigner name', 'System', async () => {
+      if (!assignerUserId) return 'System';
+      const user = await tenantDb(db, tenantId).table('users').where({ user_id: assignerUserId }).first();
+      return user ? `${user.first_name} ${user.last_name}` : 'System';
+    }, { tenantId, ticketId: payload.ticketId });
 
     const safeString = (value?: unknown) => {
       if (typeof value === 'string') {
@@ -2723,6 +2771,7 @@ async function sendTicketAssignedNotifications(
         tenantId,
         ...emailEntityContext,
         to: ticket.assigned_to_email,
+        addressedAs: 'msp',
         subject: `You have been assigned to ticket: ${ticket.title}`,
         template: 'ticket-assigned',
         context: buildContext(internalUrl),
@@ -2767,6 +2816,7 @@ async function sendTicketAssignedNotifications(
         ...emailEntityContext,
         contactId: primaryContactId,
         to: primaryEmail,
+        addressedAs: 'client',
         subject: `Team Assigned to Your Ticket: ${ticket.title}`,
         template: 'ticket-team-assigned',
         context: teamContext,
@@ -2817,6 +2867,7 @@ async function sendTicketAssignedNotifications(
           ...emailEntityContext,
           contactId: primaryContactId,
           to: primaryEmail,
+          addressedAs: 'client',
           subject: `Your Ticket Is Being Worked On: ${ticket.title}`,
           template: 'ticket-agent-assigned-client',
           context: clientContext,
@@ -2836,6 +2887,7 @@ async function sendTicketAssignedNotifications(
             tenantId,
             ...emailEntityContext,
             to: resource.email ?? '',
+            addressedAs: 'msp',
             subject: `You have been added as additional resource to ticket: ${ticket.title}`,
             template: 'ticket-assigned',
             context: buildContext(internalUrl),
@@ -2851,23 +2903,21 @@ async function sendTicketAssignedNotifications(
     // ticket-updated / comment-added events, so we skip the assignment-time
     // email rather than sending the assignee-perspective ticket-assigned copy.
     if (teamName && shouldSendContactFacingTicketEmail(suppression)) {
-      const watcherTeamContext = {
-        ticket: {
-          ...baseTicketContext,
-          teamName,
-          url: portalUrl
-        }
-      };
+      const internalWatcherEmails = await resolveInternalWatcherEmails(db, tenantId, activeWatcherEmails, { ticketId: payload.ticketId });
       await sendOneEmailPerWatcher(
         activeWatcherEmails,
         async (watcherEmail) => {
+          const isInternalWatcher = internalWatcherEmails.has(normalizeRecipientEmail(watcherEmail));
           await sendIfUnique({
             tenantId,
             ...emailEntityContext,
             to: watcherEmail,
+            addressedAs: isInternalWatcher ? 'msp' : 'client',
             subject: `Team Assigned to Ticket: ${ticket.title}`,
             template: 'ticket-team-assigned',
-            context: watcherTeamContext,
+            context: {
+              ticket: { ...baseTicketContext, teamName, url: isInternalWatcher ? internalUrl : portalUrl },
+            },
             replyContext
           }, 'Ticket Team Assigned');
         },
@@ -3304,6 +3354,7 @@ async function handleTicketCommentAdded(event: TicketCommentAddedEvent): Promise
           ...emailEntityContext,
           ...(recipient.kind === 'requester_contact' && primaryContactId ? { contactId: primaryContactId } : {}),
           to: recipient.email!,
+          addressedAs: internal ? 'msp' : 'client',
           subject: `New Comment on Ticket: ${projectedContext.ticket.title}`,
           template: 'ticket-comment-added',
           // Keep canonical source content in the queued params; sendEventEmail reauthorizes and
@@ -3343,6 +3394,7 @@ async function handleTicketCommentAdded(event: TicketCommentAddedEvent): Promise
         ...emailEntityContext,
         contactId: primaryContactId,
         to: primaryEmail,
+        addressedAs: 'client',
         subject: `New Comment on Ticket: ${ticket.title}`,
         template: 'ticket-comment-added',
         context: buildContext(portalUrl),
@@ -3387,6 +3439,7 @@ async function handleTicketCommentAdded(event: TicketCommentAddedEvent): Promise
         ...emailEntityContext,
         subject: `New Comment on Ticket: ${ticket.title}`,
         template: 'ticket-comment-added',
+        addressedAs: 'client' as const,
         context: buildContext(portalUrl),
         replyContext: fallbackReplyContext,
         ...commentThreadHeaderParams,
@@ -3448,6 +3501,7 @@ async function handleTicketCommentAdded(event: TicketCommentAddedEvent): Promise
             entityType: 'ticket',
             entityId: child.ticket_id,
             to: childPrimaryEmail,
+            addressedAs: 'client',
             subject: `New Comment on Ticket: ${ticket.title}`,
             template: 'ticket-comment-added',
             context: {
@@ -3496,6 +3550,7 @@ async function handleTicketCommentAdded(event: TicketCommentAddedEvent): Promise
             tenantId,
             ...emailEntityContext,
             to: watcherEmail,
+            addressedAs: isInternalWatcher ? 'msp' : 'client',
             subject: `New Comment on Ticket: ${ticket.title}`,
             template: 'ticket-comment-added',
             context: buildContext(watcherUrl),
@@ -3528,6 +3583,7 @@ async function handleTicketCommentAdded(event: TicketCommentAddedEvent): Promise
         tenantId,
         ...emailEntityContext,
         to: assignedEmail,
+        addressedAs: 'msp',
         subject: `New Comment on Ticket: ${ticket.title}`,
         template: 'ticket-comment-added',
         context: buildContext(internalUrl),
@@ -3554,6 +3610,7 @@ async function handleTicketCommentAdded(event: TicketCommentAddedEvent): Promise
           tenantId,
           ...emailEntityContext,
           to: resource.email ?? '',
+          addressedAs: 'msp',
           subject: `New Comment on Ticket: ${ticket.title}`,
           template: 'ticket-comment-added',
           context: buildContext(internalUrl),
@@ -3717,15 +3774,16 @@ async function handleTicketClosed(event: TicketClosedEvent): Promise<void> {
     const descriptionText = descriptionFormatting.text.trim();
     const description = descriptionText || 'No description provided.';
 
-    const changes = await formatChanges(db, payload.changes || {}, tenantId, emailTimeZone, emailLocale);
+    const optionalMeta = { tenantId, ticketId: payload.ticketId };
+    const changes = await optionalEmailData('the close change list', '',
+      () => formatChanges(db, payload.changes || {}, tenantId, emailTimeZone, emailLocale), optionalMeta);
 
     // Get closer's name
-    const closer = closerUserId
-      ? await tenantDb(db, tenantId).table('users')
-          .where({ user_id: closerUserId })
-          .first()
-      : null;
-    const closedBy = closer ? `${closer.first_name} ${closer.last_name}` : 'System';
+    const closedBy = await optionalEmailData('the closer name', 'System', async () => {
+      if (!closerUserId) return 'System';
+      const closer = await tenantDb(db, tenantId).table('users').where({ user_id: closerUserId }).first();
+      return closer ? `${closer.first_name} ${closer.last_name}` : 'System';
+    }, optionalMeta);
 
     // Resolution bodies for the close email, split by recipient visibility: the
     // latest resolution of any visibility for internal recipients, the latest
@@ -3920,6 +3978,7 @@ async function handleTicketClosed(event: TicketClosedEvent): Promise<void> {
         ...emailEntityContext,
         contactId: primaryContactId,
         to: primaryEmail,
+        addressedAs: 'client',
         subject: `Ticket Closed: ${ticket.title}`,
         template: 'ticket-closed',
         context: externalContext,
@@ -3946,6 +4005,7 @@ async function handleTicketClosed(event: TicketClosedEvent): Promise<void> {
         ...emailEntityContext,
         subject: `Ticket Closed: ${ticket.title}`,
         template: 'ticket-closed',
+        addressedAs: 'client' as const,
         context: externalContext,
         ticketResolutionSource: externalResolutionSource,
         replyContext: closeReplyContext,
@@ -4028,6 +4088,7 @@ async function handleTicketClosed(event: TicketClosedEvent): Promise<void> {
             entityType: 'ticket',
             entityId: child.ticket_id,
             to: childPrimaryEmail,
+            addressedAs: 'client',
             subject: `Ticket Closed: ${ticket.title}`,
             template: 'ticket-closed',
             context: {
@@ -4066,6 +4127,7 @@ async function handleTicketClosed(event: TicketClosedEvent): Promise<void> {
         tenantId,
         ...emailEntityContext,
         to: assignedEmail,
+        addressedAs: 'msp',
         subject: `Ticket Closed: ${ticket.title}`,
         template: 'ticket-closed',
         context: internalContext,
@@ -4088,6 +4150,7 @@ async function handleTicketClosed(event: TicketClosedEvent): Promise<void> {
             tenantId,
             ...emailEntityContext,
             to: resource.email ?? '',
+            addressedAs: 'msp',
             subject: `Ticket Closed: ${ticket.title}`,
             template: 'ticket-closed',
             context: internalContext,
@@ -4124,6 +4187,7 @@ async function handleTicketClosed(event: TicketClosedEvent): Promise<void> {
           tenantId,
           ...emailEntityContext,
           to: watcherEmail,
+          addressedAs: isInternalWatcher ? 'msp' : 'client',
           subject: `Ticket Closed: ${ticket.title}`,
           template: 'ticket-closed',
           context: watcherContext,
