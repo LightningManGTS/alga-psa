@@ -1,6 +1,8 @@
-FROM node:20-bullseye AS base
+FROM node:20-trixie AS base
 
-# Install system dependencies
+# Install system dependencies. Bullseye is EOL and its apt lists now live on
+# archive.debian.org (deb.debian.org 404s the pinned ca-certificates), so the
+# base is on a current stable release where the regular mirrors serve packages.
 RUN apt-get update && apt-get install -y \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
