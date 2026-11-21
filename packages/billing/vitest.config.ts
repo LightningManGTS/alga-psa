@@ -268,6 +268,7 @@ export default defineConfig({
         find: /^@alga-psa\/workflows\/(.*)$/,
         replacement: `${path.resolve(__dirname, '../../ee/packages/workflows/src')}/$1`,
       },
+      ...exportedSourceAliases('@alga-psa/core', path.resolve(__dirname, '../core')),
       {
         find: /^@alga-psa\/core\/fileNames$/,
         replacement: `${path.resolve(__dirname, '../core/src/lib/fileNames.ts')}`,
@@ -319,6 +320,10 @@ export default defineConfig({
       {
         find: /^@alga-psa\/product-extension-actions$/,
         replacement: path.resolve(__dirname, '../product-extension-actions/oss/entry.ts'),
+      },
+      {
+        find: /^@product\/service-principals\/entry$/,
+        replacement: path.resolve(__dirname, '../product-service-principals/oss/entry.ts'),
       },
       {
         find: /^@enterprise$/,
