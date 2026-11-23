@@ -11,7 +11,8 @@
       "oneTime": "Engångsdebitering",
       "other": "Övrigt",
       "quarterly": "Kvartalsvis",
-      "semiAnnually": "Halvårsvis"
+      "semiAnnually": "Halvårsvis",
+      "weekly": "Veckovis"
     },
     "cadenceTotal": "{{cadence}} totalt",
     "currency": "Valuta",
@@ -142,6 +143,8 @@
     "shipping": "Frakt",
     "returnBy": "Retur senast",
     "returnShipTo": "Returnera till",
+    "yes": "Ja",
+    "no": "Nej",
     "worksheet": {
       "ticketNumber": "Ärende nr",
       "customer": "Kund",
