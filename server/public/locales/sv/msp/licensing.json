@@ -14,6 +14,7 @@
     "communityEditionDescription": "Community Edition med egen drift har obegränsat antal användare utan licensbegränsningar eller extra kostnader."
   },
   "purchaseSuccess": {
+    "unlimitedLicenses": "Obegränsat",
     "metaTitle": "Köpet har genomförts",
     "scheduledTitle": "Ändringen har schemalagts",
     "updatedTitle": "Uppdateringen har slutförts",
@@ -395,7 +396,8 @@
   },
   "errors": {
     "notSignedIn": "Inte inloggad. Logga in för att hantera licenser.",
-    "accountManagementRead": "Åtkomst nekad: läsbehörighet för account_management krävs"
+    "accountManagementRead": "Åtkomst nekad: läsbehörighet för account_management krävs",
+    "accountManagementUpdate": "Åtkomst nekad: uppdateringsbehörighet för account_management krävs"
   },
   "coManaged": {
     "trial": {

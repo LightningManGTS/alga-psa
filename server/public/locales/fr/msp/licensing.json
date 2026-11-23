@@ -14,6 +14,7 @@
     "communityEditionDescription": "La Community Edition auto-hébergée permet un nombre illimité d’utilisateurs, sans restriction de licence ni coût supplémentaire."
   },
   "purchaseSuccess": {
+    "unlimitedLicenses": "Illimité",
     "metaTitle": "Achat réussi",
     "scheduledTitle": "Changement planifié avec succès !",
     "updatedTitle": "Mise à jour réussie !",
@@ -395,7 +396,8 @@
   },
   "errors": {
     "notSignedIn": "Non autorisé. Connectez-vous pour gérer les licences.",
-    "accountManagementRead": "Autorisation refusée : autorisation de lecture sur la gestion des comptes requise"
+    "accountManagementRead": "Autorisation refusée : autorisation de lecture sur la gestion des comptes requise",
+    "accountManagementUpdate": "Autorisation refusée : autorisation de mise à jour sur la gestion des comptes requise"
   },
   "coManaged": {
     "trial": {

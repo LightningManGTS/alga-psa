@@ -14,6 +14,7 @@
     "communityEditionDescription": "Die selbst gehostete Community Edition bietet unbegrenzt viele Benutzer ohne Lizenzbeschränkungen oder zusätzliche Kosten."
   },
   "purchaseSuccess": {
+    "unlimitedLicenses": "Unbegrenzt",
     "metaTitle": "Kauf erfolgreich",
     "scheduledTitle": "Änderung erfolgreich geplant!",
     "updatedTitle": "Aktualisierung erfolgreich!",
@@ -395,7 +396,8 @@
   },
   "errors": {
     "notSignedIn": "Nicht autorisiert. Melden Sie sich an, um die Lizenzierung zu verwalten.",
-    "accountManagementRead": "Berechtigung verweigert: Leseberechtigung für die Kontoverwaltung erforderlich"
+    "accountManagementRead": "Berechtigung verweigert: Leseberechtigung für die Kontoverwaltung erforderlich",
+    "accountManagementUpdate": "Berechtigung verweigert: Aktualisierungsberechtigung für die Kontoverwaltung erforderlich"
   },
   "coManaged": {
     "trial": {
