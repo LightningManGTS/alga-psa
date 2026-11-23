@@ -11,7 +11,8 @@
       "oneTime": "Unique",
       "other": "Autre",
       "quarterly": "Trimestriel",
-      "semiAnnually": "Semestriel"
+      "semiAnnually": "Semestriel",
+      "weekly": "Hebdomadaire"
     },
     "cadenceTotal": "Total {{cadence}}",
     "currency": "Devise",
@@ -142,6 +143,8 @@
     "shipping": "Expédition",
     "returnBy": "Retour avant le",
     "returnShipTo": "Adresse de retour",
+    "yes": "Oui",
+    "no": "Non",
     "worksheet": {
       "ticketNumber": "Ticket n°",
       "customer": "Client",

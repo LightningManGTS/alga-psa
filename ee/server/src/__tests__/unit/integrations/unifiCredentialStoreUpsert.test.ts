@@ -9,6 +9,9 @@ vi.mock('@alga-psa/core/secrets', () => ({
   getSecretProviderInstance: vi.fn(async () => ({ deleteTenantSecret })),
 }));
 
+const adminMock = vi.hoisted(() => ({ getAdminConnection: vi.fn() }));
+vi.mock('@alga-psa/db/admin', () => adminMock);
+
 import knexFactory, { type Knex } from 'knex';
 import logger from '@alga-psa/core/logger';
 import { createPersistentFleetStore } from '../../../lib/integrations/unifi/credentials/credentialStore';
@@ -66,6 +69,24 @@ describe('UniFi persistent fleet store: console route upsert', () => {
     for (const stamp of stamps) expect(Date.parse(stamp)).toBeGreaterThanOrEqual(before - 1);
 
     await knex.destroy();
+  });
+
+  it('resolves the admin connection per operation instead of holding a pool that may be rebuilt', async () => {
+    const first = recordingKnex();
+    const second = recordingKnex();
+    adminMock.getAdminConnection.mockReset().mockResolvedValueOnce(first.knex).mockResolvedValue(second.knex);
+    const store = createPersistentFleetStore(TENANT);
+
+    await store.loadRoutes();
+    expect(first.queries.length).toBeGreaterThan(0);
+    const secondBefore = second.queries.length;
+
+    // The first pool is destroyed (connection-reset recovery); the next operation must use the new one.
+    await first.knex.destroy();
+    await store.loadRoutes();
+    expect(second.queries.length).toBeGreaterThan(secondBefore);
+    expect(adminMock.getAdminConnection.mock.calls.length).toBeGreaterThanOrEqual(2);
+    await second.knex.destroy();
   });
 });
 
