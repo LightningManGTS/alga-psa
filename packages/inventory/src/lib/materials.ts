@@ -152,53 +152,38 @@ export async function listMaterials(
 ): Promise<MaterialRow[]> {
   const cfg = PARENTS[parentType];
   return runInTransaction(db, async (trx: Knex.Transaction) => {
-    const query = trx(`${cfg.table} as m`)
-      .leftJoin('service_catalog as sc', function () {
-        this.on('m.service_id', '=', 'sc.service_id').andOn('m.tenant', '=', 'sc.tenant');
-      })
-      .where({ 'm.tenant': tenant, [`m.${cfg.parentCol}`]: parentId })
+    const scoped = tenantDb(trx, tenant);
+    const query = scoped.table(`${cfg.table} as m`)
+      .where({ [`m.${cfg.parentCol}`]: parentId })
       .select(
         'm.*',
         'sc.service_name as service_name',
         'sc.sku as sku',
         'sc.cost as catalog_unit_cost',
         'sc.cost_currency as catalog_cost_currency',
+        trx.raw(`(COALESCE(pis.is_serialized, false) OR EXISTS (
+          SELECT 1 FROM stock_movements sm
+          WHERE sm.tenant = m.tenant AND sm.source_doc_type = ?
+            AND sm.source_doc_id = m.?? AND sm.unit_id IS NOT NULL
+        )) as is_serialized`, [cfg.sourceDocType, cfg.pk]),
       )
       .orderBy('m.created_at', 'desc');
+    scoped.tenantJoin(query, 'service_catalog as sc', 'm.service_id', 'sc.service_id', { type: 'left' });
+    scoped.tenantJoin(query, 'product_inventory_settings as pis', 'm.service_id', 'pis.service_id', { type: 'left' });
     if (parentType === 'project') {
       // C6: which materials were installed from staging (the drawer marks them).
-      query
-        .leftJoin('project_staging_lines as psl', function () {
-          this.on('psl.project_material_id', '=', 'm.project_material_id').andOn('psl.tenant', '=', 'm.tenant');
-        })
-        .select('psl.staging_line_id as from_staging_line_id');
+      scoped.tenantJoin(query, 'project_staging_lines as psl', 'm.project_material_id', 'psl.project_material_id', { type: 'left' });
+      query.select('psl.staging_line_id as from_staging_line_id');
     }
     const materials = (await query) as MaterialRow[];
     if (parentType !== 'ticket' || materials.length === 0) return materials;
 
-    const ticketMaterials = materials.map((material) => {
+    return materials.map((material) => {
       if (!('ticket_material_id' in material)) {
         throw new Error('Ticket material query returned a project material row');
       }
-      return material;
+      return { ...material, quantity_locked: material.is_serialized === true };
     });
-    const serviceIds = [...new Set(materials.map((material) => material.service_id))];
-    const db = tenantDb(trx, tenant);
-    const serializedServices = await db.table('product_inventory_settings')
-      .where({ is_serialized: true })
-      .whereIn('service_id', serviceIds)
-      .select('service_id');
-    const linkedUnits = await db.table('stock_movements')
-      .where({ source_doc_type: cfg.sourceDocType, movement_type: 'consume' })
-      .whereIn('source_doc_id', ticketMaterials.map((material) => material.ticket_material_id))
-      .whereNotNull('unit_id')
-      .select('source_doc_id');
-    const lockedServiceIds = new Set(serializedServices.map((row: { service_id: string }) => row.service_id));
-    const lockedMaterialIds = new Set(linkedUnits.map((row: { source_doc_id: string }) => row.source_doc_id));
-    return ticketMaterials.map((material) => ({
-      ...material,
-      quantity_locked: lockedServiceIds.has(material.service_id) || lockedMaterialIds.has(material.ticket_material_id),
-    }));
   });
 }
 
@@ -240,7 +225,7 @@ export async function addMaterial(
 
     const product = await trx('service_catalog')
       .where({ tenant, service_id: input.service_id, item_kind: 'product' })
-      .select('service_id')
+      .select('service_id', 'manufacturer')
       .first();
     if (!product) {
       throw new MaterialValidationError('service_id must reference an existing product', 'service_id');
@@ -254,7 +239,7 @@ export async function addMaterial(
       if (!input.unit_id) {
         throw new MaterialValidationError('A serial-numbered unit must be selected for this product', 'unit_id');
       }
-      if (quantity !== 1) {
+      if (Number(input.quantity) !== 1) {
         throw new MaterialValidationError('Serialized products are added one unit at a time', 'quantity');
       }
     }
@@ -397,10 +382,19 @@ export async function addMaterial(
 
     if (pendingAsset) {
       // F029: delivered assets commit independently, so link them only after this transaction commits.
+      // The parent ticket/project is carried along so the asset also lands in the entity's
+      // asset section (asset_associations) once created.
+      const assetLink = {
+        ...pendingAsset,
+        manufacturer: (product as { manufacturer?: string | null }).manufacturer ?? null,
+        parentType: input.parent_type,
+        parentId: input.parent_id,
+        createdBy: performedBy,
+      };
       registerAfterCommitWithConnection(trx, async (rootConnection) => {
         try {
           const { createAndLinkDeliveredAsset } = await import('./assetLink');
-          await createAndLinkDeliveredAsset(rootConnection, tenant, pendingAsset);
+          await createAndLinkDeliveredAsset(rootConnection, tenant, assetLink);
         } catch (e) {
           console.error(`Asset creation for delivered ${cfg.label}-material unit failed:`, e);
         }
@@ -566,6 +560,19 @@ export async function deleteMaterial(
   return runInTransaction(db, async (trx: Knex.Transaction) => {
     const removed = await removeMaterialInTransaction(trx, tenant, parentType, materialId, performedBy);
     if (!removed) return false;
+
+    // Serialized installs create a client asset linked to this ticket/project; removing the
+    // material un-assigns it again (stock side is restored by reverseStockConsumption).
+    if (removed.unit_id) {
+      const { detachDeliveredAssetAssociation } = await import('./assetLink');
+      const parentRow = await trx(cfg.table)
+        .where({ tenant, [cfg.pk]: materialId })
+        .select(cfg.parentCol)
+        .first();
+      if (parentRow) {
+        await detachDeliveredAssetAssociation(trx, tenant, removed.unit_id, parentType, parentRow[cfg.parentCol]);
+      }
+    }
 
     // C6 D8: a material installed from staging releases its line (never back to a claim: the
     // restored stock is free again, not silently re-reserved).
