@@ -14,6 +14,7 @@
     "communityEditionDescription": "Self-hosted Community Edition has unlimited users with no license restrictions or additional costs."
   },
   "purchaseSuccess": {
+    "unlimitedLicenses": "Unlimited",
     "metaTitle": "Purchase Success",
     "scheduledTitle": "Change Scheduled Successfully!",
     "updatedTitle": "Update Successful!",
@@ -395,7 +396,8 @@
   },
   "errors": {
     "notSignedIn": "Unauthorized. Sign in to manage licensing.",
-    "accountManagementRead": "Permission denied: account_management read required"
+    "accountManagementRead": "Permission denied: account_management read required",
+    "accountManagementUpdate": "Permission denied: account_management update required"
   },
   "coManaged": {
     "trial": {

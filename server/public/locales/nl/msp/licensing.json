@@ -14,6 +14,7 @@
     "communityEditionDescription": "De zelfgehoste Community Edition biedt een onbeperkt aantal gebruikers zonder licentiebeperkingen of extra kosten."
   },
   "purchaseSuccess": {
+    "unlimitedLicenses": "Onbeperkt",
     "metaTitle": "Aankoop voltooid",
     "scheduledTitle": "Wijziging succesvol ingepland!",
     "updatedTitle": "Update geslaagd!",
@@ -395,7 +396,8 @@
   },
   "errors": {
     "notSignedIn": "Niet geautoriseerd. Meld u aan om licenties te beheren.",
-    "accountManagementRead": "Toestemming geweigerd: leesrechten voor accountbeheer vereist"
+    "accountManagementRead": "Toestemming geweigerd: leesrechten voor accountbeheer vereist",
+    "accountManagementUpdate": "Toestemming geweigerd: updaterechten voor accountbeheer vereist"
   },
   "coManaged": {
     "trial": {

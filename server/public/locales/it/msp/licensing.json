@@ -14,6 +14,7 @@
     "communityEditionDescription": "La Community Edition con hosting autonomo offre utenti illimitati senza restrizioni di licenza o costi aggiuntivi."
   },
   "purchaseSuccess": {
+    "unlimitedLicenses": "Illimitate",
     "metaTitle": "Acquisto completato",
     "scheduledTitle": "Modifica pianificata con successo!",
     "updatedTitle": "Aggiornamento completato con successo!",
@@ -395,7 +396,8 @@
   },
   "errors": {
     "notSignedIn": "Non autorizzato. Accedi per gestire le licenze.",
-    "accountManagementRead": "Autorizzazione negata: è richiesta l'autorizzazione di lettura per la gestione degli account"
+    "accountManagementRead": "Autorizzazione negata: è richiesta l'autorizzazione di lettura per la gestione degli account",
+    "accountManagementUpdate": "Autorizzazione negata: è richiesta l'autorizzazione di aggiornamento per la gestione degli account"
   },
   "coManaged": {
     "trial": {
