@@ -44,6 +44,13 @@ describe('tenant table manifest golden order', () => {
     expect(new Set(order).size).toBe(633);
   });
 
+  it('deletes stopwatch session entry links before their sessions and time entries', () => {
+    const order = tenantDeletionOrder(TENANT_TABLE_MANIFEST);
+    expect(order).toContain('time_tracking_session_entries');
+    expect(order.indexOf('time_tracking_session_entries')).toBeLessThan(order.indexOf('time_tracking_sessions'));
+    expect(order.indexOf('time_tracking_session_entries')).toBeLessThan(order.indexOf('time_entries'));
+  });
+
   it('deletes asset numbering dependents before assets and their immutable claims', () => {
     const order = tenantDeletionOrder(TENANT_TABLE_MANIFEST);
     const tables = ['asset_tag_audit', 'asset_tag_activation', 'asset_number_reservations', 'assets', 'asset_tag_legacy_bindings', 'asset_tag_claims'];
