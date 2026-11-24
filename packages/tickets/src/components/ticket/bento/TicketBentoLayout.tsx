@@ -101,6 +101,8 @@ export interface TicketBentoLayoutProps {
   workflowLocked?: boolean;
   onOpenAllFields: () => void;
   tags?: any[];
+  /** Server answer for the "My group" chip; see ActivityGroupControlRenderProps.initialOnMyList. */
+  initialOnMyActivityList?: boolean | null;
   onTagsChange?: (tags: any[]) => void;
   taskActions?: React.ReactNode;
   /** Injected quick-invoice-a-ticket action (billing package). */
@@ -1085,6 +1087,7 @@ export function TicketBentoLayout(props: TicketBentoLayoutProps) {
           workflowLocked={props.workflowLocked}
           onOpenAllFields={props.onOpenAllFields}
           tags={props.tags}
+          initialOnMyActivityList={props.initialOnMyActivityList}
           onTagsChange={capabilities.tags ? props.onTagsChange : undefined}
           heroMeta={props.heroMeta}
           customerLabel={[props.contactInfo?.full_name, props.client?.client_name].filter(Boolean).join(' · ') || null}
