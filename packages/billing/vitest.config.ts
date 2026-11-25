@@ -191,11 +191,12 @@ export default defineConfig({
       'src/lib/invoice-template-ast/fieldFormatting.country.test.ts',
       'src/lib/invoice-template-ast/react-renderer.country.test.tsx',
       'src/services/pdfGenerationService.renderCountry.test.ts',
+      'src/services/pdfGenerationService.printSettings.test.ts',
+      'src/services/pdfGenerationService.locale.test.ts',
+      'src/services/pdfGenerationService.documentHtml.test.ts',
       // PDF document rendering must exercise the isolated Chromium policy, and
       // its existing print-settings tests must remain part of the package lane.
       'src/services/pdfGenerationService.ssrf.test.ts',
-      'src/services/pdfGenerationService.printSettings.test.ts',
-      'src/services/pdfGenerationService.locale.test.ts',
       // Per-seat unit-rate rendering on the template detail page and the
       // currency-neutral template review step — listed for the same reason as above.
       'src/components/billing-dashboard/contracts/ContractTemplateDetail.unitRate.test.tsx',
@@ -225,6 +226,12 @@ export default defineConfig({
       'src/lib/balanceDue.test.ts',
       'src/lib/creditBalance.test.ts',
       'src/actions/contractSimulationActions.refusals.test.ts',
+      // Pricing schedules: which line a schedule reprices, and the calendar
+      // date it is stored under (a day early reprices a whole extra period).
+      'src/components/billing-dashboard/contracts/PricingScheduleDialog.contract.test.tsx',
+      'src/components/billing-dashboard/contracts/PricingSchedules.contract.test.tsx',
+      'src/actions/contractPricingScheduleActions.customRate.test.ts',
+      'src/actions/contractPricingScheduleActions.dates.test.ts',
     ],
     // Above vitest.setup.ts's 20s asyncUtilTimeout, so a stalled waitFor fails
     // as itself rather than as a test timeout.
@@ -246,6 +253,10 @@ export default defineConfig({
   resolve: {
     alias: [
       serverOnlyAlias,
+      {
+        find: /^@alga-psa\/core\/net\/safeFetch$/,
+        replacement: path.resolve(__dirname, '../core/src/lib/net/safeFetch.ts'),
+      },
       { find: /^next\/server$/, replacement: path.resolve(__dirname, '../../node_modules/next/server.js') },
       {
         find: /^@alga-psa\/billing\/(.*)$/,
